@@ -99,6 +99,11 @@ probe_scheduler.py --json
   `%LOCALAPPDATA%\quota-pill\runtime\`，任务动作指向副本。好处是删掉、移动、重装技能都不会
   让任务指向空路径；代价是改了脚本要重跑一次安装，`--status` 会提示副本落后。
   卸载时任务与副本一起删除。
+- **解释器路径写死在任务动作里**：取的是安装时 `sys.executable` 同目录的 `pythonw.exe`。
+  WorkBuddy 自带的 Python 路径带版本号（`…\binaries\python\versions\3.13.12\`），
+  升级客户端或换 Python 之后这条路径就没了，任务每次启动都失败且**不会主动告诉你**。
+  `--status` 里 `LastTaskResult` 会变成 `0x2`（系统找不到指定的文件），看到它就重跑一次安装。
+  这条在换机、换版本后最容易踩，因为任务是静默的。
 
 ## 不采用的方案
 
