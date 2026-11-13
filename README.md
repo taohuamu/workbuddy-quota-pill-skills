@@ -9,16 +9,18 @@
 ```
 workbuddy-quota-pill-skills/
 ├── quota-pill/                  # 技能本体，可直接放进 ~/.workbuddy/skills/
-│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（72 行）
+│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（65 行）
 │   ├── scripts/
 │   │   ├── quota_watch.py       # 数据层，与主项目逐字节同源
 │   │   ├── quota_report.py      # 输出层：Markdown 表格 + 签名缓存
 │   │   ├── notify.py            # 阈值提醒：命中时发系统通知
-│   │   ├── install_task.py      # 注册/注销提醒用的计划任务
+│   │   ├── install_task.py      # 注册/注销提醒用的计划任务（自动选后端）
+│   │   ├── probe_scheduler.py   # 探测 schtasks / 定时任务模块是否可用
 │   │   └── sync_check.py        # 校验副本是否与主项目脱节
 │   └── references/
 │       ├── data-source.md       # 字段含义、覆盖率、模型清单（易变）
-│       └── troubleshooting.md   # 排查顺序
+│       ├── troubleshooting.md   # 排查顺序
+│       └── scheduling.md        # 调度后端选路、错误码、已知限制
 └── tools/
     ├── install.py               # 装/卸到技能目录（默认建目录联接）
     ├── validate_skill.py        # frontmatter 与结构校验
@@ -60,16 +62,21 @@ python quota-pill/scripts/sync_check.py --fix  # 用上游覆盖副本
 
 主打的是问答：你问一句，拿一张表。提醒是附加能力，**默认关闭**，只有用户明确要求时才装。
 
-原因是它会在系统里留一个计划任务，卸载技能不会连带删掉；而且企业环境可能禁用任务计划程序。所以不做默认行为，也不主动推荐。
+原因是它会在系统里留一个计划任务，而且企业环境可能禁用任务计划程序。所以不做默认行为，也不主动推荐。
 
 需要时：
 
 ```bash
-python quota-pill/scripts/notify.py --dry-run              # 先看判定
+python quota-pill/scripts/probe_scheduler.py               # 先看本机哪条路可用
+python quota-pill/scripts/notify.py --dry-run              # 再看判定
 python quota-pill/scripts/install_task.py --every 10       # 注册，每 10 分钟
 python quota-pill/scripts/install_task.py --status
 python quota-pill/scripts/install_task.py --uninstall
 ```
+
+**注册会自动选后端**：先试 `schtasks.exe`，它被安全策略拦死（进程起不来）时改用系统自带的
+ScheduledTasks 模块（经 powershell 调用），两者都不可用才把命令交给你手动执行。
+`--backend powershell` 可强制指定。判定依据与错误码对照见 `quota-pill/references/scheduling.md`。
 
 触发条件是 level 为 `critical` 或 `warn`，阈值与报告窗一致。同一模型同一等级 2 小时内不重复提醒，等级升级会再弹一次。状态记在 `%LOCALAPPDATA%\quota-pill\notify-state.json`。
 
@@ -77,7 +84,7 @@ python quota-pill/scripts/install_task.py --uninstall
 若正好到点，任务会去拉一个已经不存在的脚本。删之前先 `/Query` 一次，任务本就不存在时按「没有」处理，
 不报错。
 
-本机若禁止调用 `schtasks`（部分企业策略会拦），脚本会打印手动命令，执行一次即可：
+删除同样会自动选后端。只有在两条路都不可用时，脚本才会打印手动命令，执行一次即可：
 
 ```
 schtasks /Delete /TN "WorkBuddyQuotaPill-Notify" /F

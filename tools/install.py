@@ -24,9 +24,15 @@ SRC = os.path.join(os.path.dirname(HERE), "quota-pill")
 # 取不到（技能目录被人拆散）才退回内置常量，避免改名后两处不一致。
 sys.path.insert(0, os.path.join(SRC, "scripts"))
 try:
-    from install_task import TASK_NAME
+    from install_task import TASK_NAME, task_exists as _task_exists, remove_task as _remove_task
 except Exception:                                  # noqa: BLE001
     TASK_NAME = "WorkBuddyQuotaPill-Notify"
+
+    def _task_exists():
+        return None
+
+    def _remove_task():
+        return "blocked"
 
 
 def target_root():
@@ -73,31 +79,22 @@ def do_install(copy_mode):
     return 0
 
 
-def _schtasks(args):
-    """调用 schtasks。可能抛 OSError：本机若把它列入程序黑名单，进程根本起不来。"""
-    return subprocess.run(["schtasks"] + args, capture_output=True, text=True,
-                          encoding="gbk", errors="ignore")
-
-
 def task_status():
-    """返回 'present' / 'absent' / 'blocked'（无法执行，判不了）。"""
+    """'present' / 'absent' / 'blocked'。交给 install_task 判，它会在
+    schtasks 不可用时自动换另一个后端，这里不再自己写一套。"""
     try:
-        r = _schtasks(["/Query", "/TN", TASK_NAME])
-    except OSError:
+        v = _task_exists()
+    except Exception:                          # noqa: BLE001
         return "blocked"
-    return "present" if r.returncode == 0 else "absent"
+    return {True: "present", False: "absent"}.get(v, "blocked")
 
 
 def remove_task():
     """删除提醒用的计划任务。返回 'deleted' / 'absent' / 'blocked' / 'failed'。"""
-    st = task_status()
-    if st != "present":
-        return st
     try:
-        r = _schtasks(["/Delete", "/TN", TASK_NAME, "/F"])
-    except OSError:
+        return _remove_task()
+    except Exception:                          # noqa: BLE001
         return "blocked"
-    return "deleted" if r.returncode == 0 else "failed"
 
 
 def do_uninstall():
@@ -115,7 +112,7 @@ def do_uninstall():
                              "quota-pill", "notify-state.json")
         if task == "failed" or os.path.exists(state):
             print("计划任务可能仍存在（%s）。请手动执行一次：" % (
-                "本机禁止调用 schtasks" if task == "blocked" else "删除失败"))
+                "调度后端都不可用" if task == "blocked" else "删除失败"))
             print('  schtasks /Delete /TN "%s" /F' % TASK_NAME)
 
     if not os.path.exists(dst):
