@@ -9,7 +9,7 @@
 ```
 workbuddy-quota-pill-skills/
 ├── quota-pill/                  # 技能本体，可直接放进 ~/.workbuddy/skills/
-│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（65 行）
+│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（69 行）
 │   ├── scripts/
 │   │   ├── quota_watch.py       # 数据层，与主项目逐字节同源
 │   │   ├── quota_report.py      # 输出层：Markdown 表格 + 签名缓存
@@ -77,6 +77,10 @@ python quota-pill/scripts/install_task.py --uninstall
 **注册会自动选后端**：先试 `schtasks.exe`，它被安全策略拦死（进程起不来）时改用系统自带的
 ScheduledTasks 模块（经 powershell 调用），两者都不可用才把命令交给你手动执行。
 `--backend powershell` 可强制指定。判定依据与错误码对照见 `quota-pill/references/scheduling.md`。
+
+安装时会把 `notify.py` 与数据层复制到 `%LOCALAPPDATA%\quota-pill\runtime\`，任务指向这份副本，
+所以删掉、移动、重装技能都不会让任务指向空路径；改了脚本要重跑一次安装，`--status` 会提示副本落后。
+`--dry-run` 只打印将执行的命令，不建目录也不注册任务。
 
 触发条件是 level 为 `critical` 或 `warn`，阈值与报告窗一致。同一模型同一等级 2 小时内不重复提醒，等级升级会再弹一次。状态记在 `%LOCALAPPDATA%\quota-pill\notify-state.json`。
 

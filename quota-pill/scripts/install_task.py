@@ -16,12 +16,18 @@
 
 import argparse
 import os
+import shutil
 import subprocess
 import sys
 
 TASK_NAME = "WorkBuddyQuotaPill-Notify"
 HERE = os.path.dirname(os.path.abspath(__file__))
 NOTIFY = os.path.join(HERE, "notify.py")
+
+STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "quota-pill")
+# 任务动作指向这份副本，而不是技能目录：技能被删、被移动、被重装都不影响已注册的任务。
+RUNTIME_DIR = os.path.join(STATE_DIR, "runtime")
+STAGE_FILES = ("notify.py", "quota_watch.py")
 
 sys.path.insert(0, HERE)
 try:
@@ -35,6 +41,32 @@ def python_for_task():
     exe = sys.executable
     cand = os.path.join(os.path.dirname(exe), "pythonw.exe")
     return cand if os.path.exists(cand) else exe
+
+
+def stage_runtime():
+    """把提醒脚本与数据层复制到 %LOCALAPPDATA%\\quota-pill\\runtime\\。
+
+    任务动作必须指向一个「不随技能目录存亡」的路径：指向技能目录时，用户手动删掉
+    技能会留下一条每 N 分钟去拉空路径的任务，静默失败且没有痕迹。
+    """
+    os.makedirs(RUNTIME_DIR, exist_ok=True)
+    for name in STAGE_FILES:
+        src = os.path.join(HERE, name)
+        if os.path.exists(src):
+            shutil.copy2(src, os.path.join(RUNTIME_DIR, name))
+    return os.path.join(RUNTIME_DIR, "notify.py")
+
+
+def staged_is_stale():
+    """runtime 里的副本是否落后于技能目录（改了代码没重装）。"""
+    for name in STAGE_FILES:
+        src = os.path.join(HERE, name)
+        dst = os.path.join(RUNTIME_DIR, name)
+        if not os.path.exists(dst):
+            return True
+        if os.path.exists(src) and os.path.getsize(src) != os.path.getsize(dst):
+            return True
+    return False
 
 
 def run(args):
@@ -73,7 +105,7 @@ def backend(forced=None):
 
 # ---------------------------------------------------------------- 各后端实现
 
-def _install_ps(every):
+def _install_ps(every, target):
     script = (
         "$ErrorActionPreference='Stop'\n"
         "try {\n"
@@ -87,14 +119,14 @@ def _install_ps(every):
         "-Settings $set -Force | Out-Null\n"
         "  'OK'\n"
         "} catch { 'ERR: ' + $_.Exception.Message }\n"
-    ) % (_q(python_for_task()), _q('"%s"' % NOTIFY), _q(HERE), every, _q(TASK_NAME))
+    ) % (_q(python_for_task()), _q('"%s"' % target), _q(RUNTIME_DIR), every, _q(TASK_NAME))
     rc, out, err = _ps(script)
     return rc == 0 and out.strip().startswith("OK"), (out or err).strip()
 
 
-def _install_schtasks(every):
+def _install_schtasks(every, target):
     # /TR 的整串要再包一层引号，内部两个路径各自转义，否则 schtasks 只认第一个路径。
-    tr = '"\\"%s\\" \\"%s\\""' % (python_for_task(), NOTIFY)
+    tr = '"\\"%s\\" \\"%s\\""' % (python_for_task(), target)
     r = run(["schtasks", "/Create", "/TN", TASK_NAME, "/TR", tr,
              "/SC", "MINUTE", "/MO", str(every), "/IT", "/F"])
     return r.returncode == 0, (r.stderr or r.stdout).strip()
@@ -107,8 +139,9 @@ def _status_ps():
         "$i = Get-ScheduledTaskInfo -TaskName %s\n"
         "'STATE=' + $t.State\n"
         "'NEXT=' + $i.NextRunTime\n"
-        "'LAST=' + $i.LastRunTime\n"
-        "'RESULT=0x{0:X}' -f $i.LastTaskResult\n"
+        "if ($i.LastRunTime.Year -lt 2000) { 'LAST=从未运行' } else { 'LAST=' + $i.LastRunTime }\n"
+        "if ($i.LastTaskResult -eq 0x41303) { 'RESULT=0x41303（从未运行过，正常）' } "
+        "else { 'RESULT=0x{0:X}' -f $i.LastTaskResult }\n"
     ) % (_q(TASK_NAME), _q(TASK_NAME))
     rc, out, err = _ps(script)
     return out.strip(), rc
@@ -125,14 +158,14 @@ def _uninstall_ps():
     return out.strip(), rc
 
 
-def _manual_commands(every):
+def _manual_commands(every, target):
     lines = ["在命令提示符里手动执行（不需要管理员）：",
              'schtasks /Create /TN "%s" /TR "\\"%s\\" \\"%s\\"" /SC MINUTE /MO %d /IT /F'
-             % (TASK_NAME, python_for_task(), NOTIFY, every),
+             % (TASK_NAME, python_for_task(), target, every),
              "",
              "或在 PowerShell 里执行：",
              "$act = New-ScheduledTaskAction -Execute '%s' -Argument '\"%s\"' -WorkingDirectory '%s'"
-             % (python_for_task(), NOTIFY, HERE),
+             % (python_for_task(), target, RUNTIME_DIR),
              "$trg = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes %d)" % every,
              "Register-ScheduledTask -TaskName '%s' -Action $act -Trigger $trg -Force" % TASK_NAME]
     return lines
@@ -159,33 +192,48 @@ def status():
             if line.startswith(("TaskName", "任务名", "Status", "状态",
                                 "Next Run", "下次运行", "Task To Run", "要运行的任务")):
                 print("  " + line)
-    print("\n提醒脚本:", NOTIFY)
+    print("\n提醒脚本:", os.path.join(RUNTIME_DIR, "notify.py"))
     print("解释器  :", python_for_task())
+    if staged_is_stale():
+        print("提示    : runtime 副本落后于技能目录，重跑一次安装可更新")
     return 0
 
 
-def install(every, forced=None):
+def install(every, forced=None, dry_run=False):
     if not os.path.exists(NOTIFY):
         print("找不到提醒脚本:", NOTIFY)
         return 1
     be = backend(forced)
+    target = os.path.join(RUNTIME_DIR, "notify.py")
+
+    if dry_run:
+        print("后端      : %s" % be)
+        print("副本目录  : %s" % RUNTIME_DIR)
+        print("任务动作  : \"%s\" \"%s\"" % (python_for_task(), target))
+        print("间隔      : %d 分钟" % every)
+        print("\n将执行的命令：")
+        for line in _manual_commands(every, target):
+            print(line)
+        return 0
+
     if be == "manual":
         print("没有可用的调度后端（schtasks 起不来，PowerShell 也不可用）。")
-        for line in _manual_commands(every):
+        for line in _manual_commands(every, target):
             print(line)
         return 1
 
-    ok, detail = _install_ps(every) if be == "powershell" else _install_schtasks(every)
+    target = stage_runtime()
+    ok, detail = _install_ps(every, target) if be == "powershell" else _install_schtasks(every, target)
     if not ok:
         print("安装失败（%s）：%s" % (be, detail))
         # schtasks 失败时自动再试一次 PowerShell —— 这是最常见的一种环境差异。
         if be == "schtasks" and backend() == "powershell":
             print("改用 PowerShell 重试…")
-            ok, detail = _install_ps(every)
+            ok, detail = _install_ps(every, target)
             be = "powershell"
     if not ok:
         print("安装失败（%s）：%s" % (be, detail))
-        for line in _manual_commands(every):
+        for line in _manual_commands(every, target):
             print(line)
         return 1
 
@@ -227,8 +275,17 @@ def remove_task():
     return "deleted" if r.returncode == 0 else "failed"
 
 
+def cleanup_runtime():
+    """删掉 runtime 副本。任务还在跑时不要调用：那会让它指向空路径。"""
+    if os.path.isdir(RUNTIME_DIR):
+        shutil.rmtree(RUNTIME_DIR, ignore_errors=True)
+
+
 def uninstall():
     state = remove_task()
+    if state in ("deleted", "absent"):
+        # 任务已经不存在了，副本留着只会让下次装到旧版本。
+        cleanup_runtime()
     if state == "absent":
         print("计划任务本来就不存在")
         return 0
@@ -249,6 +306,7 @@ def main():
     ap.add_argument("--every", type=int, default=10, help="检查间隔（分钟）")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--uninstall", action="store_true")
+    ap.add_argument("--dry-run", action="store_true", help="只打印将执行的命令，不注册任务")
     ap.add_argument("--backend", choices=("schtasks", "powershell", "manual"),
                     help="强制指定调度后端，默认自动探测")
     a = ap.parse_args()
@@ -256,7 +314,7 @@ def main():
         return status()
     if a.uninstall:
         return uninstall()
-    return install(a.every, a.backend)
+    return install(a.every, a.backend, a.dry_run)
 
 
 if __name__ == "__main__":

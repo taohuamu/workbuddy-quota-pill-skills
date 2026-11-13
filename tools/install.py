@@ -24,7 +24,9 @@ SRC = os.path.join(os.path.dirname(HERE), "quota-pill")
 # 取不到（技能目录被人拆散）才退回内置常量，避免改名后两处不一致。
 sys.path.insert(0, os.path.join(SRC, "scripts"))
 try:
-    from install_task import TASK_NAME, task_exists as _task_exists, remove_task as _remove_task
+    from install_task import (TASK_NAME, task_exists as _task_exists,
+                              remove_task as _remove_task,
+                              cleanup_runtime as _cleanup_runtime)
 except Exception:                                  # noqa: BLE001
     TASK_NAME = "WorkBuddyQuotaPill-Notify"
 
@@ -33,6 +35,9 @@ except Exception:                                  # noqa: BLE001
 
     def _remove_task():
         return "blocked"
+
+    def _cleanup_runtime():
+        return None
 
 
 def target_root():
@@ -114,6 +119,12 @@ def do_uninstall():
             print("计划任务可能仍存在（%s）。请手动执行一次：" % (
                 "调度后端都不可用" if task == "blocked" else "删除失败"))
             print('  schtasks /Delete /TN "%s" /F' % TASK_NAME)
+    if task in ("deleted", "absent"):
+        # 任务没了，runtime 副本也一起清掉，否则下次装会用到旧版本。
+        try:
+            _cleanup_runtime()
+        except Exception:                      # noqa: BLE001
+            pass
 
     if not os.path.exists(dst):
         print("未安装：%s" % dst)

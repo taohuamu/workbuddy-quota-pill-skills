@@ -4,7 +4,7 @@ description: 查询 WorkBuddy 各模型本周期（24 小时滚动窗口）的�
 agent_created: true
 allowed-tools: Bash(python:*) Read
 metadata:
-  version: "0.4.0"
+  version: "0.4.1"
   requires:
     bins: [python]
 ---
@@ -38,11 +38,15 @@ metadata:
 不要主动建议，也不要装完技能就顺手装上——它会在系统里留一个计划任务。
 
 1. 直接注册：`python "${CODEBUDDY_SKILL_DIR}/scripts/install_task.py" --every 10`
-   成功即完成，不需要用户再做什么。
+   成功即完成，不需要用户再做什么。加 `--dry-run` 只打印将执行的命令，不落地。
 2. 脚本自己选调度后端：`schtasks.exe` → PowerShell ScheduledTasks 模块 → 两者都不行才交人工。
    **只有它打印「没有可用的调度后端」时**才把命令交给用户；此时**不要尝试绕过**（改注册表、
    换 shell、写启动项都不算解决问题），并说明这是本机策略限制、不是脚本缺陷。
 3. 查看 `--status`，关闭 `--uninstall`。想强制换后端加 `--backend powershell`。
+
+安装时会把 `notify.py` 与数据层复制到 `%LOCALAPPDATA%\quota-pill\runtime\`，任务动作指向
+这份副本而不是技能目录——删掉、移动、重装技能都不会让任务指着空路径。代价是改了脚本要
+重跑一次安装；`--status` 会提示副本落后。
 
 判断本机走哪条路：`python "${CODEBUDDY_SKILL_DIR}/scripts/probe_scheduler.py"`，一次给出
 `schtasks` / PowerShell / ScheduledTasks 模块 / 是否管理员 四项状态与推荐后端。

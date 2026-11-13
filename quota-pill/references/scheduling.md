@@ -49,6 +49,21 @@ probe_scheduler.py --json
 | 退出码 | 查不到任务返回 1，与「执行失败」同为 1 | 查不到返回 0 + 空结果，语义清楚 |
 | 被策略拦截时的表现 | 进程起不来（`OSError`） | 通常不受影响 |
 
+## 运行副本
+
+任务动作指向 `%LOCALAPPDATA%\quota-pill\runtime\notify.py`，而不是技能目录里的脚本。
+安装时复制 `notify.py` 与 `quota_watch.py` 两份过去，卸载时一并删除。
+
+理由：任务是个长期存在的东西，技能目录却可能被删、被移动、被重装。指向技能目录时，
+用户手动删一次目录就会留下一条每 10 分钟去拉空路径的任务——静默失败，也没有痕迹。
+
+代价与对策：
+
+| 代价 | 对策 |
+|---|---|
+| 改了 `notify.py` 不重装就不生效 | `--status` 比对文件大小，落后时提示「重跑一次安装」 |
+| 多占一份磁盘 | 两份纯 Python，约 23 KB |
+
 ## 错误码对照（`LastTaskResult`）
 
 注册成功不等于任务能跑。查 `Get-ScheduledTaskInfo` 或 `schtasks /Query /V` 的
@@ -80,8 +95,10 @@ probe_scheduler.py --json
   `[Console]::OutputEncoding=[Text.Encoding]::UTF8`。
 - **只在本机验证过**：另一条路（另一台机器、另一套策略）的实际表现可能不同，
   所以保留探测而不是写死。
-- **任务动作指向脚本所在目录**：手动删掉技能目录会留下一条指向空路径的任务（到点即失败）。
-  正常卸载走 `install_task.py --uninstall`，它会先删任务再让你删目录。
+- **任务跑的是副本，不是技能目录**：安装时会把 `notify.py` 与 `quota_watch.py` 复制到
+  `%LOCALAPPDATA%\quota-pill\runtime\`，任务动作指向副本。好处是删掉、移动、重装技能都不会
+  让任务指向空路径；代价是改了脚本要重跑一次安装，`--status` 会提示副本落后。
+  卸载时任务与副本一起删除。
 
 ## 不采用的方案
 
@@ -113,6 +130,11 @@ WorkBuddy 自身有「定时任务」，可以完全不用系统计划任务。�
 | 每 10 分钟重复 | 通过，`Repetition Interval = PT10M` |
 | `-RunLevel Highest`（非管理员） | 失败，「拒绝访问」 |
 | 强制 `--backend schtasks` | 失败后自动降级到 PowerShell，成功 |
+| 运行副本 | 通过：动作指向 `…\quota-pill\runtime\notify.py`，执行结果 `0x0`，日志有新行 |
+| 卸载连带清副本 | 通过：任务 `CLEAN`，runtime 目录已消失 |
+| `--dry-run` | 通过：只打印命令与目标路径，未建目录、未注册任务 |
+| 副本落后提示 | 通过：人为截断副本后 `--status` 提示「重跑一次安装」 |
+| 未运行状态的显示 | 通过：`LAST=从未运行`、`RESULT=0x41303（从未运行过，正常）` |
 
 未验证：企业组策略同时禁用任务计划程序与 PowerShell 的情形；PowerShell 被降级到
 受限语言模式（Constrained Language Mode）时的表现。
