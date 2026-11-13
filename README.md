@@ -1,8 +1,8 @@
 # workbuddy-quota-pill-skills
 
-把 [workbuddy-quota-pill](https://github.com/taohuamu/workbuddy-quota-pill) 的数据层包装成一个 WorkBuddy 技能：在对话里问「还剩多少额度」，直接拿到各模型的周期配额表。
+[workbuddy-quota-pill](https://github.com/taohuamu/workbuddy-quota-pill) 的 WorkBuddy 技能版。
 
-本仓库与主项目分开，是因为两者交付对象不同——主项目交付一个常驻桌面程序，这里交付一个可被调用的技能。数据层共用同一份实现，见下文「同源约束」。
+本仓库与主项目分开，是因为两者交付对象不同。主项目交付一个常驻桌面程序，这里交付一个可被调用的技能。不过数据层是共用同一种策略实现的，见下文「同源约束」。
 
 ## 结构
 
