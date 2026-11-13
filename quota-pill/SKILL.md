@@ -4,7 +4,7 @@ description: 查询 WorkBuddy 各模型本周期（24 小时滚动窗口）的�
 agent_created: true
 allowed-tools: Bash(python:*) Read
 metadata:
-  version: "0.3.0"
+  version: "0.3.1"
   requires:
     bins: [python]
 ---

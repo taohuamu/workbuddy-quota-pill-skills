@@ -22,7 +22,8 @@ workbuddy-quota-pill-skills/
 └── tools/
     ├── install.py               # 装/卸到技能目录（默认建目录联接）
     ├── validate_skill.py        # frontmatter 与结构校验
-    └── test_output_contract.py  # 输出层契约测试（19 项）
+    ├── test_output_contract.py  # 输出层契约测试（19 项）
+    └── route_test.md            # 真路由测试清单（需新会话手工执行）
 ```
 
 ## 安装
@@ -36,6 +37,12 @@ python tools/install.py --uninstall
 
 安装后**新开一个会话**，问「现在还剩多少额度」，应出现 7 列表格。当前会话的技能清单在启动时已加载，装了也不会立刻生效。
 
+## 真路由测试
+
+`description` 决定技能何时被选中，而这条链路只能靠真的发一句话来验证——静态检查只能证明「问句里有能对上的词」，证明不了模型会选它。
+
+步骤见 [`tools/route_test.md`](tools/route_test.md)：5 条正例、3 条反例、判定标准与三条失败分支（未加载 / 从不触发 / 触发报错）。两个要点：**必须新开会话**（技能清单在会话启动时加载），**一次只发一句**。
+
 ## 同源约束
 
 `quota-pill/scripts/quota_watch.py` 是主项目 `quota_watch.py` 的**逐字节副本**，不是重新实现。原因是配额周期、stale 判定、置信度分档这些语义一旦有两份实现，就必然漂移——第一轮迭代里手写版本就因为漏掉「`reset_at` 是字符串」把整列算成了空。
@@ -46,6 +53,8 @@ python tools/install.py --uninstall
 python quota-pill/scripts/sync_check.py        # 不一致时返回 1
 python quota-pill/scripts/sync_check.py --fix  # 用上游覆盖副本
 ```
+
+它还会顺带校验 `references/` 的「上次核对」日期是否落后于文件自身的修改时间——内容改了却忘改日期，读者会以为结论还停在旧日期。这一项只提醒，不阻断。
 
 ## 主动提醒（可选附件）
 
