@@ -29,7 +29,7 @@ OUT_ROOT = os.path.join(ROOT, "dist")
 # 分发物清单。quota-pill/ 整个目录进包，tools/ 只放安装脚本。
 # docs/ 要带上：README 里链到 how-it-works.md，包里缺了就是死链。
 INCLUDE_DIRS = ["quota-pill", "docs"]
-INCLUDE_FILES = ["README.md", os.path.join("tools", "install.py")]
+INCLUDE_FILES = ["README.md", "LICENSE", os.path.join("tools", "install.py")]
 
 # 不该进包的东西：字节码无用，.git 会把仓库历史一起带走，dist 会自我嵌套。
 SKIP_DIRS = {"__pycache__", ".git", "dist", ".idea", ".vscode"}
@@ -190,7 +190,7 @@ def verify(out, top, files):
             if "/.git/" in name or name.endswith("/.git"):
                 bad.append("混入仓库历史 " + name)
         for need in ("SKILL.md", "START-HERE.txt", "MANIFEST.txt",
-                     "install.py", "how-it-works.md"):
+                     "install.py", "how-it-works.md", "LICENSE"):
             if not any(n.endswith("/" + need) for n in names):
                 bad.append("缺 " + need)
         # 关键文件逐字节复核，确认写入时没被编码或换行改动

@@ -1,13 +1,14 @@
 # workbuddy-quota-pill-skills
 
-把 [workbuddy-quota-pill](../workbuddy-quota-pill) 的数据层包装成一个 WorkBuddy 技能：在对话里问「还剩多少额度」，直接拿到各模型的周期配额表。
+把 [workbuddy-quota-pill](https://github.com/taohuamu/workbuddy-quota-pill) 的数据层包装成一个 WorkBuddy 技能：在对话里问「还剩多少额度」，直接拿到各模型的周期配额表。
 
-本目录与主项目分离，是因为两者交付对象不同——主项目交付一个常驻桌面程序，这里交付一个可被调用的技能。数据层共用同一份实现，见下文「同源约束」。
+本仓库与主项目分开，是因为两者交付对象不同——主项目交付一个常驻桌面程序，这里交付一个可被调用的技能。数据层共用同一份实现，见下文「同源约束」。
 
 ## 结构
 
 ```
 workbuddy-quota-pill-skills/
+├── LICENSE                      # MIT
 ├── quota-pill/                  # 技能本体，可直接放进 ~/.workbuddy/skills/
 │   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（73 行）
 │   ├── scripts/
@@ -56,7 +57,7 @@ python tools/package.py --tag test2
 
 打包前先跑技能结构校验和输出层契约测试，任一项不过就不出包——一个装不上的包比没有包更糟，对方只会怀疑是自己的环境问题。出包后重新打开 zip 复核：文件齐全、没混进字节码、关键文件哈希与源文件一致。同目录另有 `MANIFEST.txt`，拷贝过程中被改动或截断时能对出来。
 
-白名单只放 `quota-pill/`、`docs/`、`README.md` 和 `tools/install.py`。`route_test.md`、三个测试脚本和 `.git` 对收包的人没有用，只会让包里多出几个不知该点哪个的文件。
+白名单只放 `quota-pill/`、`docs/`、`README.md`、`LICENSE` 和 `tools/install.py`。`route_test.md`、三个测试脚本和 `.git` 对收包的人没有用，只会让包里多出几个不知该点哪个的文件。许可证必须跟着走，这条不能省。
 
 `dist/` 在 `.gitignore` 里，不进仓库。
 
@@ -78,6 +79,8 @@ python quota-pill/scripts/sync_check.py --fix  # 用上游覆盖副本
 ```
 
 它还会顺带校验 `references/` 的「上次核对」日期是否落后于文件自身的修改时间——内容改了却忘改日期，读者会以为结论还停在旧日期。这一项只提醒，不阻断。
+
+单独克隆本仓库时旁边没有主项目，`sync_check.py` 会退出 2 并打印「找不到上游文件」。这是正常现象，不是安装问题；要对比就手动指过去：`--upstream <主项目>/quota_watch.py`。
 
 ## 主动提醒（可选附件）
 
@@ -135,3 +138,11 @@ python tools/test_output_contract.py
 - 首次查询全量扫描日志，日志大的机器可能 1–3 秒；之后命中缓存约 0.1 秒。
 - 技能的产出是文本表格，没有常驻窗口。想要「一直看得见」，用主项目的托盘版。
 - 主动提醒靠计划任务，检查间隔即最大延迟：设 10 分钟，最坏情况是耗尽后 10 分钟才提醒。
+
+## 许可
+
+MIT，见 [LICENSE](LICENSE)。
+
+这是第三方工具，不是腾讯或 WorkBuddy 官方产物。它读的是本机会话日志里的字段，
+字段含义与下发策略由客户端决定，可能随版本变化；数字对不上时先怀疑这个，
+不必怀疑安装。
