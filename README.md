@@ -23,6 +23,7 @@ workbuddy-quota-pill-skills/
 │       └── scheduling.md        # 调度后端选路、错误码、已知限制
 └── tools/
     ├── install.py               # 装/卸到技能目录（默认建目录联接）
+    ├── package.py               # 打 zip 分发物（含试装说明与哈希清单）
     ├── validate_skill.py        # frontmatter 与结构校验
     ├── test_output_contract.py  # 输出层契约测试（19 项）
     └── route_test.md            # 真路由测试清单（需新会话手工执行）
@@ -38,6 +39,21 @@ python tools/install.py --uninstall
 ```
 
 安装后**新开一个会话**，问「现在还剩多少额度」，应出现 7 列表格。当前会话的技能清单在启动时已加载，装了也不会立刻生效。
+
+## 发给别人试
+
+```bash
+python tools/package.py             # 版本号取自 SKILL.md，包名带当天日期
+python tools/package.py --tag test2
+```
+
+包里有 `START-HERE.txt`，写的是在另一台机器上怎么装：解压、`python tools\install.py --copy`、新开会话。用 `--copy` 而不是默认的目录联接，是因为解压目录往往是一次性的，联接会指着它不放。
+
+打包前先跑技能结构校验和输出层契约测试，任一项不过就不出包——一个装不上的包比没有包更糟，对方只会怀疑是自己的环境问题。出包后重新打开 zip 复核：文件齐全、没混进字节码、关键文件哈希与源文件一致。同目录另有 `MANIFEST.txt`，拷贝过程中被改动或截断时能对出来。
+
+白名单只放 `quota-pill/`、`README.md` 和 `tools/install.py`。`route_test.md`、两个测试脚本和 `.git` 对收包的人没有用，只会让包里多出几个不知该点哪个的文件。
+
+`dist/` 在 `.gitignore` 里，不进仓库。
 
 ## 真路由测试
 
