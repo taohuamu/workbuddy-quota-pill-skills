@@ -4,7 +4,7 @@ description: 查询 WorkBuddy 各模型本周期（24 小时滚动窗口）的�
 agent_created: true
 allowed-tools: Bash(python:*) Read
 metadata:
-  version: "0.3.1"
+  version: "0.3.2"
   requires:
     bins: [python]
 ---
@@ -35,7 +35,7 @@ metadata:
 ## 主动提醒（可选附件，默认关闭）
 
 技能本身是「问了才跑」。只有用户明确要求「快用完时提醒我」「开个额度提醒」时才启用。
-不要主动建议，也不要装完技能就顺手装上——它会在系统里留一个计划任务，卸载技能时要单独清理。
+不要主动建议，也不要装完技能就顺手装上——它会在系统里留一个计划任务。
 
 1. 直接尝试注册：`python "${CODEBUDDY_SKILL_DIR}/scripts/install_task.py" --every 10`
    成功即完成，不需要用户再做什么。
@@ -46,11 +46,16 @@ metadata:
 
 触发条件是 level 为 `critical` 或 `warn`，与报告窗一致；同一模型同一等级 2 小时内只提醒一次，等级升级（注意→危险）会再弹。
 
-**卸载技能目录不会删除计划任务。** 用户要求卸载或清理时，提醒他另行执行：
+**卸载**：先删任务，再删技能目录——反过来，两次操作之间若正好到点，任务会去拉一个
+已经不存在的脚本。
 
 ```
 schtasks /Delete /TN "WorkBuddyQuotaPill-Notify" /F
 ```
+
+任务本就不存在时这条会报「找不到」，属正常，不必追查。若 `schtasks` 被安全策略拦截，
+把这条命令原样交给用户。仓库目录下的 `tools/install.py --uninstall` 会按此顺序一次做完
+（它不随技能包分发，只有从仓库装的人有）。
 
 ## 高信号规则
 

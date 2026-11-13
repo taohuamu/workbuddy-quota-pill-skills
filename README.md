@@ -73,13 +73,15 @@ python quota-pill/scripts/install_task.py --uninstall
 
 触发条件是 level 为 `critical` 或 `warn`，阈值与报告窗一致。同一模型同一等级 2 小时内不重复提醒，等级升级会再弹一次。状态记在 `%LOCALAPPDATA%\quota-pill\notify-state.json`。
 
-**卸载要点**：`install.py --uninstall` 只删技能目录，计划任务要另行删除——
+**卸载**：`install.py --uninstall` 会先删计划任务，再删技能目录。顺序是刻意的——反过来，两次操作之间
+若正好到点，任务会去拉一个已经不存在的脚本。删之前先 `/Query` 一次，任务本就不存在时按「没有」处理，
+不报错。
+
+本机若禁止调用 `schtasks`（部分企业策略会拦），脚本会打印手动命令，执行一次即可：
 
 ```
 schtasks /Delete /TN "WorkBuddyQuotaPill-Notify" /F
 ```
-
-`install.py --uninstall` 检测到开过提醒时会提示这一条。
 
 ## 测试
 

@@ -20,6 +20,14 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(os.path.dirname(HERE), "quota-pill")
 
+# 任务名只应该有一个定义处，就是 install_task.py；这里优先取它的值，
+# 取不到（技能目录被人拆散）才退回内置常量，避免改名后两处不一致。
+sys.path.insert(0, os.path.join(SRC, "scripts"))
+try:
+    from install_task import TASK_NAME
+except Exception:                                  # noqa: BLE001
+    TASK_NAME = "WorkBuddyQuotaPill-Notify"
+
 
 def target_root():
     return os.path.join(os.path.expanduser("~"), ".workbuddy", "skills")
@@ -65,8 +73,51 @@ def do_install(copy_mode):
     return 0
 
 
+def _schtasks(args):
+    """调用 schtasks。可能抛 OSError：本机若把它列入程序黑名单，进程根本起不来。"""
+    return subprocess.run(["schtasks"] + args, capture_output=True, text=True,
+                          encoding="gbk", errors="ignore")
+
+
+def task_status():
+    """返回 'present' / 'absent' / 'blocked'（无法执行，判不了）。"""
+    try:
+        r = _schtasks(["/Query", "/TN", TASK_NAME])
+    except OSError:
+        return "blocked"
+    return "present" if r.returncode == 0 else "absent"
+
+
+def remove_task():
+    """删除提醒用的计划任务。返回 'deleted' / 'absent' / 'blocked' / 'failed'。"""
+    st = task_status()
+    if st != "present":
+        return st
+    try:
+        r = _schtasks(["/Delete", "/TN", TASK_NAME, "/F"])
+    except OSError:
+        return "blocked"
+    return "deleted" if r.returncode == 0 else "failed"
+
+
 def do_uninstall():
     dst = target_dir()
+
+    # 先删任务再删目录：反过来的话，两次操作之间若正好到点，任务会去拉一个
+    # 已经不存在的脚本，往 notify.log 里留一条无意义的报错。
+    task = remove_task()
+    if task == "deleted":
+        print("已删除计划任务：%s" % TASK_NAME)
+    elif task in ("blocked", "failed"):
+        # 判不了的时候，用状态文件当旁证：它只在 notify 跑过之后才存在。
+        # 没跑过就说明提醒从未启用，不必拿一条可能并不存在的任务去打扰用户。
+        state = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"),
+                             "quota-pill", "notify-state.json")
+        if task == "failed" or os.path.exists(state):
+            print("计划任务可能仍存在（%s）。请手动执行一次：" % (
+                "本机禁止调用 schtasks" if task == "blocked" else "删除失败"))
+            print('  schtasks /Delete /TN "%s" /F' % TASK_NAME)
+
     if not os.path.exists(dst):
         print("未安装：%s" % dst)
         return 0
@@ -76,14 +127,6 @@ def do_uninstall():
     else:
         shutil.rmtree(dst)
         print("已删除：%s" % dst)
-
-    # 提醒用的是系统计划任务，删技能目录不会连带删掉它 —— 不清理就会留下
-    # 一个每 10 分钟去拉不存在脚本的僵尸任务。
-    state = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"),
-                         "quota-pill", "notify-state.json")
-    if os.path.exists(state):
-        print("\n注意：你开过阈值提醒，计划任务还在。请另行执行一次：")
-        print('  schtasks /Delete /TN "WorkBuddyQuotaPill-Notify" /F')
     return 0
 
 
