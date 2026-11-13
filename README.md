@@ -9,7 +9,7 @@
 ```
 workbuddy-quota-pill-skills/
 ├── quota-pill/                  # 技能本体，可直接放进 ~/.workbuddy/skills/
-│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（69 行）
+│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（73 行）
 │   ├── scripts/
 │   │   ├── quota_watch.py       # 数据层，与主项目逐字节同源
 │   │   ├── quota_report.py      # 输出层：Markdown 表格 + 签名缓存
@@ -21,13 +21,18 @@ workbuddy-quota-pill-skills/
 │       ├── data-source.md       # 字段含义、覆盖率、模型清单（易变）
 │       ├── troubleshooting.md   # 排查顺序
 │       └── scheduling.md        # 调度后端选路、错误码、已知限制
-└── tools/
-    ├── install.py               # 装/卸到技能目录（默认建目录联接）
-    ├── package.py               # 打 zip 分发物（含试装说明与哈希清单）
-    ├── validate_skill.py        # frontmatter 与结构校验
-    ├── test_output_contract.py  # 输出层契约测试（19 项）
-    └── route_test.md            # 真路由测试清单（需新会话手工执行）
+├── tools/
+│   ├── install.py               # 装/卸到技能目录（默认建目录联接）
+│   ├── package.py               # 打 zip 分发物（含试装说明与哈希清单）
+│   ├── validate_skill.py        # frontmatter 与结构校验
+│   ├── test_output_contract.py  # 输出层契约测试（19 项）
+│   └── route_test.md            # 真路由测试清单（需新会话手工执行）
+└── docs/
+    └── how-it-works.md          # 运行逻辑：链路、判定、缓存、失效模式
 ```
+
+为什么这样分层、每一步在判什么、哪些坑已经踩过，见 [`docs/how-it-works.md`](docs/how-it-works.md)。
+那篇讲逻辑，这篇讲用法，不重复。
 
 ## 安装
 
@@ -51,7 +56,7 @@ python tools/package.py --tag test2
 
 打包前先跑技能结构校验和输出层契约测试，任一项不过就不出包——一个装不上的包比没有包更糟，对方只会怀疑是自己的环境问题。出包后重新打开 zip 复核：文件齐全、没混进字节码、关键文件哈希与源文件一致。同目录另有 `MANIFEST.txt`，拷贝过程中被改动或截断时能对出来。
 
-白名单只放 `quota-pill/`、`README.md` 和 `tools/install.py`。`route_test.md`、两个测试脚本和 `.git` 对收包的人没有用，只会让包里多出几个不知该点哪个的文件。
+白名单只放 `quota-pill/`、`docs/`、`README.md` 和 `tools/install.py`。`route_test.md`、三个测试脚本和 `.git` 对收包的人没有用，只会让包里多出几个不知该点哪个的文件。
 
 `dist/` 在 `.gitignore` 里，不进仓库。
 

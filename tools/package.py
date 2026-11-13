@@ -27,7 +27,8 @@ SKILL = os.path.join(ROOT, "quota-pill")
 OUT_ROOT = os.path.join(ROOT, "dist")
 
 # 分发物清单。quota-pill/ 整个目录进包，tools/ 只放安装脚本。
-INCLUDE_DIRS = ["quota-pill"]
+# docs/ 要带上：README 里链到 how-it-works.md，包里缺了就是死链。
+INCLUDE_DIRS = ["quota-pill", "docs"]
 INCLUDE_FILES = ["README.md", os.path.join("tools", "install.py")]
 
 # 不该进包的东西：字节码无用，.git 会把仓库历史一起带走，dist 会自我嵌套。
@@ -82,6 +83,12 @@ START_HERE = """quota-pill 技能 · 试装说明
 它会先删提醒用的计划任务（如果装过），再删技能目录。
 提醒功能默认不装，要用的时候单独执行 quota-pill\\scripts\\install_task.py，
 细节见 README.md。
+
+它读什么、写什么
+----------------
+只读本机的会话日志，写入只在 %LOCALAPPDATA%\\quota-pill\\ 下（缓存、提醒状态、
+提醒脚本的运行副本），删掉不会损坏任何功能。完整链路与各项判据见
+docs\\how-it-works.md。
 """
 
 
@@ -182,7 +189,8 @@ def verify(out, top, files):
                 bad.append("混入字节码 " + name)
             if "/.git/" in name or name.endswith("/.git"):
                 bad.append("混入仓库历史 " + name)
-        for need in ("SKILL.md", "START-HERE.txt", "MANIFEST.txt", "install.py"):
+        for need in ("SKILL.md", "START-HERE.txt", "MANIFEST.txt",
+                     "install.py", "how-it-works.md"):
             if not any(n.endswith("/" + need) for n in names):
                 bad.append("缺 " + need)
         # 关键文件逐字节复核，确认写入时没被编码或换行改动
