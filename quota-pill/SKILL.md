@@ -4,7 +4,7 @@ description: 查询 WorkBuddy 各模型本周期（24 小时滚动窗口）的�
 agent_created: true
 allowed-tools: Bash(python:*) Read
 metadata:
-  version: "0.4.1"
+  version: "0.4.2"
   requires:
     bins: [python]
 ---
@@ -65,6 +65,10 @@ metadata:
 - `quota.model` 可能和 `providerData.model` 不同名（如 `hy4` / `hy4-free`），按前者展示。
 - 停在上一周期的模型已被过滤，末行会说明「另有 N 个停在上一周期」。回答时不要把它们说成当前用量。
 - 每行末尾的「数据新鲜度」必须保留：它是判断数字是否可信的唯一凭据。
+- 扫描范围是本机全部历史会话（`projects/*/*.jsonl`），不是当前这一次对话。表里模型少，
+  是这台机器本周期只用过这几家，不要说成「只统计到本轮会话」。
+- 「预计触限」为「暂不预测」或可信度为「低」时，只说明样本不足。不要拿增速去反推
+  「按这个速度会不会用完」——低可信度的增速就是噪声，推出来必然自相矛盾。
 
 ## 关键陷阱
 
