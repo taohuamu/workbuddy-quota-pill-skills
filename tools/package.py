@@ -44,8 +44,8 @@ START_HERE = """quota-pill 技能 · 试装说明
 前提
 ----
 1. Windows，且这台机器上的 WorkBuddy 已经聊过天 —— 没有会话日志就没有数据。
-2. Python 3.8 以上，命令行里 `python --version` 能出版本号。
-   出不来就试 `py --version`；两个都不行，先装 Python 再来。
+2. Python 3.8 以上。不用另外装：WorkBuddy 自带一份，`python --version` 直接能出版本号。
+   出不来就试 `py --version`；两个都不行，说明 PATH 或安装位置被动过，再考虑装。
 
 装
 --

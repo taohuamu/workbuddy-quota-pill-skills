@@ -129,7 +129,9 @@ python tools/test_output_contract.py
 ## 已知限制
 
 - 只支持 Windows 上装了 WorkBuddy 且跑过对话的机器——没有日志就没有数据。
-- 需要本机有 Python 3.8+；`python` 不在 PATH 时技能会退回 `py`。
+- 需要 Python 3.8+，但**不用另外装**：WorkBuddy 自带一份并已排进 PATH
+  （`%USERPROFILE%\.workbuddy\binaries\python\versions\` 下，指向安装目录的 `resources\vendor\python`）。
+  两台机器实测 `python --version` 拿到的都是这一份。`python` 找不到时退回 `py`。
 - 首次查询全量扫描日志，日志大的机器可能 1–3 秒；之后命中缓存约 0.1 秒。
 - 技能的产出是文本表格，没有常驻窗口。想要「一直看得见」，用主项目的托盘版。
 - 主动提醒靠计划任务，检查间隔即最大延迟：设 10 分钟，最坏情况是耗尽后 10 分钟才提醒。

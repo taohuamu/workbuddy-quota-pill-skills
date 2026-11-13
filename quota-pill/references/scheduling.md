@@ -100,10 +100,14 @@ probe_scheduler.py --json
   让任务指向空路径；代价是改了脚本要重跑一次安装，`--status` 会提示副本落后。
   卸载时任务与副本一起删除。
 - **解释器路径写死在任务动作里**：取的是安装时 `sys.executable` 同目录的 `pythonw.exe`。
-  WorkBuddy 自带的 Python 路径带版本号（`…\binaries\python\versions\3.13.12\`），
-  升级客户端或换 Python 之后这条路径就没了，任务每次启动都失败且**不会主动告诉你**。
-  `--status` 里 `LastTaskResult` 会变成 `0x2`（系统找不到指定的文件），看到它就重跑一次安装。
-  这条在换机、换版本后最容易踩，因为任务是静默的。
+  在装了 WorkBuddy 的机器上，这条路径是 `…\.workbuddy\binaries\python\versions\<版本>\pythonw.exe`，
+  而那个版本目录是个**指向客户端安装目录 `resources\vendor\python` 的符号链接**。
+  所以搬动客户端、重装到别的盘之后链接会断，任务每次启动都失败且**不会主动告诉你**。
+  `--status` 里 `LastTaskResult` 会变成 `0x2`（系统找不到指定的文件），看到它重跑一次安装。
+
+  顺带记一下结构，别再猜：`versions\` 下同时保留多个版本目录（实测 3.11.9 / 3.12.10 / 3.13.12 并存），
+  而 `versions\current` 是个**文件**、内容只有版本号，不是目录——写
+  `versions\current\python.exe` 是找不到的。
 
 ## 不采用的方案
 
