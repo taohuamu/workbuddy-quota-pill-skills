@@ -22,6 +22,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import quota_watch as qw
+import phrasing
 
 STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "quota-pill")
 STATE_FILE = os.path.join(STATE_DIR, "notify-state.json")
@@ -80,18 +81,7 @@ def pick_alerts(models):
     return hits
 
 
-def message_for(m):
-    """一句话说明：模型、已用、结论。
-
-    结论取数据层的 verdict，不再另拼一套——同一个状态在报告里和通知里说法不同，
-    用户看到的是两套话。verdict 里只有「低置信度」那条自带「已用 x%」，先剥掉前缀，
-    否则会拼成「已用 82%，已用 82%，样本太短…」。
-    """
-    pct = int(round(m["percent_used"]))
-    tail = (m.get("verdict") or "").strip()
-    if tail.startswith("已用"):
-        tail = tail.partition("，")[2].strip()
-    return "%s 已用 %d%%，%s" % (m["model"], pct, tail or "接近上限")
+# 一句话文案统一在 phrasing.py（报告和通知共用同一句），这里只负责排版与送达。
 
 
 def filter_cooldown(hits, state, cooldown_min, force):
@@ -241,16 +231,19 @@ def main():
     if not todo:
         return 0
 
-    body = "；".join(message_for(m) for m in todo[:2])
+    # 一条一行。用「；」串成一行的话，长模型名会把折行位置挤到名字中间，
+    # 断在哪儿不可控；自己换行，至少每条是完整的。
+    lines = [phrasing.line(m) for m in todo[:2]]
     if len(todo) > 2:
-        body += "；另 %d 个模型需注意" % (len(todo) - 2)
+        lines.append("另 %d 个模型需注意" % (len(todo) - 2))
+    body = "\n".join(lines)
 
     if args.dry_run:
-        log("  [dry-run] 配额胶囊 / " + body)
+        log("  [dry-run] 配额胶囊 / " + body.replace("\n", " | "))
         return 0
 
     shown = toast("配额胶囊", body) or balloon("配额胶囊", body)
-    log("  " + ("已发出通知：" if shown else "通知发送失败：") + body)
+    log("  " + ("已发出通知：" if shown else "通知发送失败：") + body.replace("\n", " | "))
     if shown:
         remember(todo, state)
     return 0

@@ -24,6 +24,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import quota_watch as qw  # noqa: E402  同源数据层
+import phrasing  # noqa: E402  与通知共用同一句文案
 
 CACHE_TTL = 300.0
 WINDOW_MIN = 60
@@ -139,8 +140,7 @@ def render(rep, cached, cost):
     risk = [m for m in models if m.get("level") == "critical"]
     if risk:
         tail.append("")
-        tail.append("**注意**：%s 存在触限风险——%s。" % (
-            "、".join(m["model"] for m in risk), risk[0]["verdict"]))
+        tail.append("**注意**：%s。" % "；".join(phrasing.line(m) for m in risk))
     return "\n".join(lines + tail)
 
 

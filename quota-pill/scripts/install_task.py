@@ -27,7 +27,9 @@ NOTIFY = os.path.join(HERE, "notify.py")
 STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "quota-pill")
 # 任务动作指向这份副本，而不是技能目录：技能被删、被移动、被重装都不影响已注册的任务。
 RUNTIME_DIR = os.path.join(STATE_DIR, "runtime")
-STAGE_FILES = ("notify.py", "quota_watch.py")
+# 任务跑的是这里的副本，不是技能目录。notify.py 依赖这两个模块，漏一个就能
+# 直接 ImportError——而且任务失败是静默的，只有 --status 的 LastTaskResult 会变。
+STAGE_FILES = ("notify.py", "quota_watch.py", "phrasing.py")
 
 sys.path.insert(0, HERE)
 try:
