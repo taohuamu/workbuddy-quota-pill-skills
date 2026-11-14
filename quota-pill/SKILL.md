@@ -10,8 +10,6 @@ description_zh: "在对话里查 WorkBuddy 各模型的配额用量、重置时�
 description_en: "Check per-model quota usage, reset time and burn-out forecast in chat; optional threshold alerts. Read-only local logs, no network, no login."
 visibility: "public"
 allowed-tools: Bash(python:*) Read
-metadata:
-  version: "0.4.3"
 ---
 
 # 配额胶囊（技能版）

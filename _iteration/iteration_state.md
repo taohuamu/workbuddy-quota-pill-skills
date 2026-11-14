@@ -20,17 +20,29 @@
   kimi-k2.8-preview、fast-model、hy4free），已汇总登记。
 - [B11] **核对方法失效（P1）**：教的命令只列「有 quota」的模型，永远发现不了「有调用无 quota」
   的新模型，而表里一半是这类。已拆成「报告口径 + 日志清点口径」两段并说明缘由。
+- [B2] 版本号双写（顶层 `version` 与 `metadata.version`）——**迭代结束后修**，用户批准删
+  `metadata.version`，`tools/package.py` 改读顶层。详见下方「迭代后修复」。
 
 ## 待修 Bug 清单
 
-- [B2] P2　版本号双写（顶层 `version` 与 `metadata.version`）。**需用户决策**：
-  `tools/package.py` 的 `version()` 读 `metadata.version`，删任一处都要改技能目录外文件。
+无。
+
+## 迭代后修复（2026-11-14，不计入轮次，用户明确批准）
+
+原属「待修 / 不做」，因为都要改技能目录外的文件或改变对外文案，迭代期间未动。用户逐条确认后完成。
+
+| 编号 | 内容 | 涉及文件 | 验证 |
+|---|---|---|---|
+| C6 | 删 `metadata.version`，`version()` 改读顶层 `^version:` | `quota-pill/SKILL.md`、`tools/package.py` | 四种写法取值正确、缩进不误命中；两种包版本号均为 0.4.3 |
+| C7 | `message_for()` 改用数据层的 `verdict`，删掉自己那套 level/eta 分支 | `quota-pill/scripts/notify.py` | 六种输入拼接无重复百分比；`--dry-run` rc=0 |
+
 
 ## 观察项与不做事项
 
 - **不做**：把 `--json` 写进 SKILL.md——只服务契约测试，对模型是噪声。
 - **不做**：给空数据补非 0 退出码——输出文本已说明，模型不依赖退出码。
-- **不做**：`message_for()` 改用 `verdict`——会改变用户看到的通知文案，属对外行为变化。
+- **不做**：`message_for()` 改用 `verdict` —— ~~会改变用户看到的通知文案，属对外行为变化~~
+  **已在迭代后改为执行（C7）**，用户确认可改文案。
 - **观察**：`versions\current` 是记录版本号的文本文件而非目录，不能用作解释器兜底路径。
 
 ## 回归用例集
@@ -46,6 +58,8 @@
 | T7 | 上一周期模型被过滤，末行报「另有 N 个」 | 契约断言 + R5 真会话末行 | 通过 |
 | T8 | frontmatter 可被标准 YAML 解析 | PyYAML `safe_load` | 通过 |
 | T9 | SKILL.md 引用的 references 均存在 | `validate_skill.py` 内含 | 通过 |
+| T15 | 版本号只有一个来源，且与 frontmatter 顶层一致 | `grep -c "metadata.version"` 为 0；`package.version()` == 顶层值 | 通过（C6 引入） |
+| T16 | 通知文案里「已用 x%」只出现一次 | 对自带百分比与不带百分比的 verdict 各测一次 | 通过（C7 引入） |
 | T10–T14 | 触发层：5 正例命中、4 反例不误触发 | 真会话，见 `tools/route_test.md` 与 R5 | 通过 |
 
 触发层用例不写入公开文档，只在本文件记结论。`description` 一旦改动必须重跑真路由。

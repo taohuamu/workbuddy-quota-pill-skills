@@ -93,12 +93,17 @@ docs\\how-it-works.md。
 
 
 def version():
-    """从 SKILL.md 的 metadata.version 取，取不到就退回日期。"""
+    """取 SKILL.md frontmatter 顶层的 version，取不到就是 0.0.0。
+
+    只认顶格的那一行。以前版本号在 metadata.version 里另存一份，两处会悄悄分叉，
+    现在只有这一个来源；正则锚在行首，缩进的同名键不会被误命中（别在文档字符串里
+    写反斜杠转义，Python 会报无效转义序列）。
+    """
     try:
         text = open(os.path.join(SKILL, "SKILL.md"), encoding="utf-8").read()
     except OSError:
         return "0.0.0"
-    m = re.search(r'^\s+version:\s*"([^"]+)"', text, re.M)
+    m = re.search(r'^version:\s*["\']?([0-9][^"\'\s]*)', text, re.M)
     return m.group(1) if m else "0.0.0"
 
 
