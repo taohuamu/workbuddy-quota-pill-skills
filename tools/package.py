@@ -177,16 +177,18 @@ def build(tag):
 
 
 def build_market(tag):
-    """技能市场上架包：SKILL.md 必须在包根。
+    """技能市场上架包：结构对齐官方的 package_skill.py。
 
-    服务端解包后按 ENOENT SKILL.md 判失败，所以不能套版本目录。与分发包的差别还有：
-    不带 START-HERE / MANIFEST / README——那些是给收包的人看的，放进上架包只会让审核
-    多判断一次「这些是不是多余的」。
+    官方写法是 `arcname = file_path.relative_to(skill_path.parent)`，也就是**保留一层**
+    技能目录，产物里是 `quota-pill/SKILL.md` 而不是 `SKILL.md`。分发包为什么不能用：
+    它多套了一层版本目录（`…-0.4.2/quota-pill/SKILL.md`），导入器取第一层会拿错。
+    另外上架包不带 START-HERE / MANIFEST / README，那些是给收包的人看的。
     """
     os.makedirs(OUT_ROOT, exist_ok=True)
-    # 文件名固定为 quota-pill.zip：上传表单没填 name 时，服务端会拿文件名去推导技能名
+    top = os.path.basename(SKILL)
+    # 文件名固定 quota-pill.zip：上传表单没填 name 时，服务端会拿文件名推导技能名
     # （deriveSkillUploadName → normalizeSkillUploadSegment），带日期后缀会被原样吃进去。
-    out = os.path.join(OUT_ROOT, "quota-pill.zip")
+    out = os.path.join(OUT_ROOT, "%s.zip" % top)
 
     files = []
     for dirpath, dirnames, filenames in os.walk(SKILL):
@@ -203,31 +205,32 @@ def build_market(tag):
 
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for path, rel in files:
-            z.write(path, rel)
+            z.write(path, top + "/" + rel)
 
     size = os.path.getsize(out)
     print("已生成上架包：%s  （%d 个文件，%.0f KB，技能版本 %s）"
           % (out, len(files), size / 1024.0, version()))
-    return 0 if verify_market(out, files) else 1
+    return 0 if verify_market(out, top, files) else 1
 
 
-def verify_market(out, files):
-    """上架包的验收标准只有一条硬的：SKILL.md 在根。其余是防止打包时带错东西。"""
+def verify_market(out, top, files):
+    """上架包的验收标准：只有一个顶层目录，且它就叫技能名，SKILL.md 在里面。"""
     bad = []
     with zipfile.ZipFile(out) as z:
         names = z.namelist()
-        if "SKILL.md" not in names:
-            bad.append("SKILL.md 不在包根，服务端会报 ENOENT")
+        tops = {n.split("/")[0] for n in names if n}
+        if tops != {top}:
+            bad.append("顶层目录应只有 %s，实际 %s" % (top, sorted(tops)))
+        if top + "/SKILL.md" not in names:
+            bad.append("%s/SKILL.md 缺失，导入器会报 ENOENT" % top)
         for _, rel in files:
-            if rel not in names:
+            if top + "/" + rel not in names:
                 bad.append("缺文件 " + rel)
         for name in names:
-            if name.startswith("quota-pill/"):
-                bad.append("多了一层目录 " + name)
             if "__pycache__" in name or name.endswith((".pyc", ".pyo")):
                 bad.append("混入字节码 " + name)
         for _, rel in files:
-            if sha256_from_zip(z, rel) != sha256(
+            if sha256_from_zip(z, top + "/" + rel) != sha256(
                     os.path.join(SKILL, rel.replace("/", os.sep))):
                 bad.append("内容不一致 " + rel)
 
@@ -236,7 +239,7 @@ def verify_market(out, files):
         for b in dict.fromkeys(bad):
             print("  - " + b)
         return False
-    print("上架包校验通过：SKILL.md 在根、无多余层级、哈希与源文件一致。")
+    print("上架包校验通过：单层 %s/、SKILL.md 在层内、哈希与源文件一致。" % top)
     return True
 
 
