@@ -16,6 +16,8 @@
 """
 
 import argparse
+import datetime as dt
+import json
 import os
 import shutil
 import subprocess
@@ -31,6 +33,9 @@ RUNTIME_DIR = os.path.join(STATE_DIR, "runtime")
 # 任务跑的是这里的副本，不是技能目录。notify.py 依赖同目录另外两个模块，漏一个就
 # 直接 ImportError——而且任务失败是静默的，只有 --status 的 LastTaskResult 会变。
 STAGE_FILES = ("notify.py", "quota_watch.py", "phrasing.py")
+# 安装时用的间隔与阈值写在这里，供 --status 回读。任务定义里也有这些参数，但两条
+# 后端的 Arguments 格式不同（schtasks 是转义过的整串），解析容易出错，所以记自己的账。
+INSTALL_RECORD = os.path.join(STATE_DIR, "install.json")
 
 sys.path.insert(0, HERE)
 try:
@@ -102,6 +107,43 @@ def _thresholds(pct, warn):
     用的是什么阈值，看任务定义就能知道，不必翻代码。%g 让 80.0 写成 80。
     """
     return "--pct %g --warn %g" % (pct, warn)
+
+
+def save_install_record(every, pct, warn, be):
+    """记下这次安装用的间隔与阈值，供 --status 回读。
+
+    记不下来不该让安装失败——这份记录是给人看的补充信息，不是运行依赖。
+    注意它记的是「安装那一刻」，之后若有人手改任务定义，两者会不一致；所以
+    --status 的措辞写「安装时」，不写「当前」。
+    """
+    rec = {
+        "installed_at": dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "every_minutes": every,
+        "pct": pct,
+        "warn": warn,
+        "backend": be,
+    }
+    try:
+        os.makedirs(STATE_DIR, exist_ok=True)
+        with open(INSTALL_RECORD, "w", encoding="utf-8") as f:
+            json.dump(rec, f, ensure_ascii=False, indent=2)
+    except OSError:
+        pass
+
+
+def load_install_record():
+    try:
+        with open(INSTALL_RECORD, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return None
+
+
+def forget_install_record():
+    try:
+        os.remove(INSTALL_RECORD)
+    except OSError:
+        pass
 
 
 def backend(forced=None):
@@ -207,6 +249,15 @@ def status():
                 print("  " + line)
     print("\n提醒脚本:", os.path.join(RUNTIME_DIR, "notify.py"))
     print("解释器  :", python_for_task())
+    rec = load_install_record()
+    if rec:
+        print("安装参数: 每 %s 分钟、已用 ≥%g%% 或 %g 小时内触限（%s 安装，后端 %s）"
+              % (rec.get("every_minutes", "?"), rec.get("pct", 0.0),
+                 rec.get("warn", 0.0), rec.get("installed_at", "?"),
+                 rec.get("backend", "?")))
+        print("          这是安装当时的记录；若之后手改过任务定义，以任务为准")
+    else:
+        print("安装参数: 无记录（早于 0.4.5 的安装没有这份记录，重跑一次安装即可写入）")
     if staged_is_stale():
         print("提示    : runtime 副本落后于技能目录，重跑一次安装可更新")
     return 0
@@ -253,7 +304,7 @@ def install(every, forced=None, dry_run=False, pct=80.0, warn=1.0):
         return 1
 
     print("已安装：每 %d 分钟检查一次，仅在当前用户登录时运行（后端 %s）" % (every, be))
-    print("提醒阈值：已用 ≥%g%% 或 %g 小时内触限" % (pct, warn))
+    save_install_record(every, pct, warn, be)
     status()
     return 0
 
@@ -302,6 +353,7 @@ def uninstall():
     if state in ("deleted", "absent"):
         # 任务已经不存在了，副本留着只会让下次装到旧版本。
         cleanup_runtime()
+        forget_install_record()
     if state == "absent":
         print("计划任务本来就不存在")
         return 0

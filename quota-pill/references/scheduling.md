@@ -52,7 +52,9 @@ probe_scheduler.py --json
 ## 运行副本
 
 任务动作指向 `%LOCALAPPDATA%\quota-pill\runtime\notify.py`，而不是技能目录里的脚本。
-安装时复制 `notify.py` 与 `quota_watch.py` 两份过去，卸载时一并删除。
+安装时把 `notify.py`、`quota_watch.py`、`phrasing.py` 三个文件复制过去，卸载时一并删除。
+**少一个就是 ImportError**，而任务失败是静默的——界面上不显示，只有 `--status` 的
+`LastTaskResult` 会变。
 
 卸载顺序必须是**先删任务、再删目录**。反过来，两次操作之间若正好到点，任务会去拉一个已经
 不存在的脚本，往 `notify.log` 里留一条无意义的报错。任务本就不存在时报「本来就不存在」，属正常。
@@ -65,7 +67,14 @@ probe_scheduler.py --json
 | 代价 | 对策 |
 |---|---|
 | 改了 `notify.py` 不重装就不生效 | `--status` 比对文件大小，落后时提示「重跑一次安装」 |
-| 多占一份磁盘 | 两份纯 Python，约 23 KB |
+| 多占一份磁盘 | 几份纯 Python，约 30 KB |
+
+`--status` 除了任务状态，还会打出**安装时的间隔与阈值**，来源是
+`%LOCALAPPDATA%\quota-pill\install.json`（安装成功时写入，卸载时删除）。
+
+它**不解析任务定义**：两条后端的 `Arguments` 格式不同（`schtasks` 存的是转义过的整串），
+解析容易出错。代价是这份记录只是「安装那一刻」的快照——若之后有人手改任务定义，两者会
+不一致。真要核对任务实际用的阈值，看 `notify.log` 每行末尾那段，或直接读任务动作。
 
 ## 错误码对照（`LastTaskResult`）
 

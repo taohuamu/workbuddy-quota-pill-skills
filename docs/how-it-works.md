@@ -92,6 +92,12 @@ python scripts/quota_report.py && python scripts/quota_report.py
 | `skill-cache.json` | `quota_report.py` | 签名缓存，删掉只是下次重扫 |
 | `notify-state.json` | `notify.py` | 同一模型同一等级的 2 小时冷却 |
 | `runtime\` | `install_task.py` | 提醒脚本的运行副本：`notify.py`、`quota_watch.py`、`phrasing.py` 三个文件 |
+| `install.json` | `install_task.py` | 安装时的间隔与阈值，供 `--status` 回读；卸载时删除 |
+| `notify.log` | `notify.py` | 每次检查留一行，超 200 KB 轮转成 `.1` |
+
+`install.json` 记的是「安装那一刻」，不是「任务当前值」——脚本不去解析任务定义（两条
+后端的 `Arguments` 格式不同），所以有人手改过任务时两者会不一致。要核对实际阈值，
+看 `notify.log` 每行末尾，或直接读任务动作。
 
 删掉整个目录不会损坏任何功能。
 
