@@ -75,22 +75,27 @@ def save_state(state):
 # ---------------------------------------------------------------- 判定
 
 def pick_alerts(models, min_pct=80.0, max_eta=1.0):
-    """两个条件二选一：已用达到 min_pct，或预计 max_eta 小时内触限。
+    """触发与内容分开，返回要写的模型列表；空列表表示不该弹。
 
-    刻意不看 level。它混着另一套口径——「按当前速度撑不到重置」也算 critical，
-    那种可能才用了 26%、离触限还有四五个小时；「撑不到重置」是「迟早会」，不是
-    「马上要」。叫醒人只该用这两把尺子：快到顶了，或者快到点了。
+    触发 —— 任一模型已用达 min_pct，或 max_eta 小时内触限。两者都够「值得叫醒你」。
+    内容 —— 触发者 ∪ 所有 level=critical 的模型。取并集是因为 critical 里有一批
+    「才用了 26%、但按当前速度撑不到重置」的，它们不构成叫醒的理由（离触限还有小半天），
+    可是既然叫醒了，就该一并告诉你。反过来，到了 80% 却撑得住的也要写进去，
+    否则「80% 就提醒」这个承诺等于没兑现。
     """
-    hits = []
-    for m in models:
-        if m.get("stale"):
-            continue
-        pct = m.get("percent_used") or 0
+    live = [m for m in models if not m.get("stale")]
+
+    def is_trigger(m):
         eta = m.get("eta_hours_to_limit")
-        if pct >= min_pct or (eta is not None and eta <= max_eta):
-            hits.append(m)
-    hits.sort(key=lambda m: (LEVEL_RANK.get(m["level"], 9), -m["percent_used"]))
-    return hits
+        return (m.get("percent_used") or 0) >= min_pct or (
+            eta is not None and eta <= max_eta)
+
+    if not any(is_trigger(m) for m in live):
+        return []
+
+    show = [m for m in live if is_trigger(m) or m.get("level") == "critical"]
+    show.sort(key=lambda m: (LEVEL_RANK.get(m["level"], 9), -m["percent_used"]))
+    return show
 
 
 # 一句话文案统一在 phrasing.py（报告和通知共用同一句），这里只负责排版与送达。

@@ -51,6 +51,7 @@ allowed-tools: Bash(python:*) Read
    都不算解决），说明这是本机策略限制、不是脚本缺陷。想先看本机走哪条路：
    `python "${CODEBUDDY_SKILL_DIR}/scripts/probe_scheduler.py"`。
 3. 触发条件二选一：任一模型已用达 80%，或预计 1 小时内触限（`--pct` / `--warn` 可调）。
+   通知里写触发的这些模型，外加所有 `level=critical` 的（可能才用 20% 多，但撑不到重置）。
    同一模型同一等级 2 小时内只提醒一次，等级变化会再弹。
 
 副本机制、后端判定、错误码、卸载顺序见 `references/scheduling.md`。
