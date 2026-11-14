@@ -8,8 +8,9 @@
 为什么要 4 倍超采样：Pillow 的 rounded_rectangle 是硬边，直接画 512 会有
 明显锯齿，缩到市场列表那种 40–64px 更糊。
 
-运行：py tools/make_icon.py
-需要 Pillow（WorkBuddy 自带的 python 里没有，系统 py 通常有）
+运行：用一个装了 Pillow 的 python 执行本文件，例如
+      "C:/Users/<你>/AppData/Local/Programs/Python/Python314/python.exe" tools/make_icon.py
+      （WorkBuddy 自带的那份 python 里没有 Pillow，py 启动器在这台机器上也挑不到它）
 """
 import os
 
@@ -19,10 +20,12 @@ SIZES = [512, 256, 128]
 K = 4                      # 超采样倍数
 W = 512 * K
 
-BG = (20, 32, 28, 255)     # 深墨绿，深浅主题下都能压住
-CAP = (255, 255, 255, 255)
-FILL = (52, 194, 107, 255)  # 亮绿，呼应胶囊态里那个百分比
-RADIUS = int(W * 0.22)     # 圆角方
+BG = (255, 255, 255, 255)     # 白底
+EDGE = (236, 238, 241, 255)   # 白底在白页面里会看不出边界，靠这道极淡描边留形
+CAP_REST = (209, 213, 219, 255)  # 剩余段，纯白底上白胶囊等于看不见，改用浅灰
+FILL = (52, 194, 107, 255)    # 亮绿，呼应胶囊态里那个百分比
+RADIUS = int(W * 0.22)        # 圆角方
+STROKE = max(1, int(W * 0.006))
 
 CAP_W_RATIO = 0.60         # 胶囊占画布宽度
 CAP_H_RATIO = 0.24
@@ -41,7 +44,10 @@ def build():
     img = Image.new("RGBA", (W, W), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     d.rounded_rectangle([0, 0, W - 1, W - 1], radius=RADIUS, fill=BG)
-    d.rounded_rectangle([x0, y0, x0 + cw - 1, y0 + ch - 1], radius=r, fill=CAP)
+    d.rounded_rectangle([0, 0, W - 1, W - 1], radius=RADIUS,
+                        outline=EDGE, width=STROKE)
+    d.rounded_rectangle([x0, y0, x0 + cw - 1, y0 + ch - 1], radius=r,
+                        fill=CAP_REST)
 
     # 已用部分做成矩形后用胶囊形状裁切：手算圆角在右侧会和胶囊边界错开
     cap_mask = Image.new("L", (W, W), 0)
