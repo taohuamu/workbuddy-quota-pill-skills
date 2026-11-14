@@ -139,6 +139,7 @@ def preflight():
         ("技能结构校验", [os.path.join(HERE, "validate_skill.py"),
                           os.path.join(SKILL, "SKILL.md")]),
         ("输出层契约", [os.path.join(HERE, "test_output_contract.py")]),
+        ("预测层行为", [os.path.join(HERE, "test_forecast.py")]),
     ]
     for label, cmd in steps:
         r = subprocess.run([sys.executable, *cmd], capture_output=True,

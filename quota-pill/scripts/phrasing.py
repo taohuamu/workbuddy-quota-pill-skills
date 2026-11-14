@@ -10,6 +10,7 @@
 撑得到重置就说额度充足。只换说法，不改判定——判据永远来自 quota_watch。
 """
 import quota_watch as qw
+import forecast
 
 # 只登记确实要换说法的几种。没登记的按原样输出：宁可长一点，也别猜错意思。
 VERDICT_TEXT = {
@@ -31,10 +32,16 @@ def _within(hours):
 def conclusion(m, high_pct=80.0):
     """结论文案。m 是 quota_watch 产出的模型字典。
 
+    有 forecast 就用它的结果句（「按此速度约 40 分钟后到上限」/「近 15 分钟无新增」）。
+    下面那一整套 verdict 映射只在没有 forecast 时兜底——例如停在上一周期的模型。
+
     high_pct 与 notify.py 的 --pct 保持一致：达到这个百分比就会被提醒，所以
     「按当前节奏够用」在这条线以上不能说成「额度充足」——一边提醒一边说充足，
     读的人只会觉得文案在敷衍。
     """
+    fc = m.get("forecast")
+    if fc is not None:
+        return forecast.phrase(fc)
     tail = (m.get("verdict") or "").strip()
     if tail.startswith("已用"):
         # 低置信度那条把百分比写在句首（"已用 82%，样本太短…"）。百分比由 line()

@@ -53,8 +53,11 @@ def main():
     # 2. 表格渲染：表头、行数、数字一致
     t = run(REPORT, "--no-cache")
     text = t.stdout
-    header = "| 模型 | 已用 | 本周期重置 | 增速 | 预计触限 | 可信度 | 数据新鲜度 |"
+    header = "| 模型 | 已用 | 本周期重置 | 近 15 分钟 | 按此速度 | 数据新鲜度 |"
     check("表头完整", header in text)
+    check("表头含观测列", "近 15 分钟" in text)
+    check("表头含读数列", "按此速度" in text)
+    check("旧的「可信度」列已移除", "可信度" not in text)
     body = [ln for ln in text.splitlines() if ln.startswith("| `")]
     check("表体行数 = 本周期模型数", len(body) == len(live),
           "表体 %d / live %d" % (len(body), len(live)))
@@ -75,6 +78,13 @@ def main():
     # 4. 末行必须带取数耗时与日志目录
     check("末行含取数耗时", "取数" in text)
     check("末行含日志目录", "日志目录" in text)
+
+    # 4b. 正文只说结果：不报格数、不报速率、不承诺「X 小时内」
+    notice = [ln for ln in text.splitlines() if ln.startswith("**注意**")]
+    joined = " ".join(notice)
+    check("注意行不报格数", "格" not in joined, joined[:60])
+    check("注意行不报速率", "/小时" not in joined and "格/小时" not in joined, joined[:60])
+    check("注意行不承诺「X 小时内触限」", "小时内触限" not in joined, joined[:60])
 
     # 5. 缓存：第二次应命中
     run(REPORT)

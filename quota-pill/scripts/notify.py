@@ -23,11 +23,11 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import quota_watch as qw
 import phrasing
+import forecast
 
 STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "quota-pill")
 STATE_FILE = os.path.join(STATE_DIR, "notify-state.json")
 
-LEVEL_RANK = {"critical": 0, "warn": 1, "ok": 2, "idle": 3}
 LOG_FILE = os.path.join(STATE_DIR, "notify.log")
 LOG_MAX = 200 * 1024
 
@@ -73,10 +73,11 @@ def save_state(state):
 
 # ---------------------------------------------------------------- 判定
 
-def pick_alerts(models, min_pct=80.0, max_eta=1.0):
+def pick_alerts(models, min_pct=80.0):
     """触发与内容分开，返回要写的模型列表；空列表表示不该弹。
 
-    触发 —— 任一模型已用达 min_pct，或 max_eta 小时内触限。两者都够「值得叫醒你」。
+    触发 —— 任一模型已用达 min_pct，或 forecast 判定「值得提前提醒」（见 forecast.py：
+    15 分钟净增格数的 χ² 下界 ≥ (100-p)/时限，且 p 已过地板）。两者都够「值得叫醒你」。
     内容 —— 触发者 ∪ 所有 level=critical 的模型。取并集是因为 critical 里有一批
     「才用了 26%、但按当前速度撑不到重置」的，它们不构成叫醒的理由（离触限还有小半天），
     可是既然叫醒了，就该一并告诉你。反过来，到了 80% 却撑得住的也要写进去，
@@ -84,17 +85,19 @@ def pick_alerts(models, min_pct=80.0, max_eta=1.0):
     """
     live = [m for m in models if not m.get("stale")]
 
-    def is_trigger(m):
-        eta = m.get("eta_hours_to_limit")
-        return (m.get("percent_used") or 0) >= min_pct or (
-            eta is not None and eta <= max_eta)
-
-    if not any(is_trigger(m) for m in live):
+    if not any(forecast.should_notify(m, min_pct) for m in live):
         return []
 
-    show = [m for m in live if is_trigger(m) or m.get("level") == "critical"]
-    show.sort(key=lambda m: (LEVEL_RANK.get(m["level"], 9), -m["percent_used"]))
+    show = [m for m in live
+            if forecast.should_notify(m, min_pct) or m.get("level") == "critical"]
+    show.sort(key=lambda m: (forecast.LEVEL_RANK.get(m["level"], 9), -m["percent_used"]))
     return show
+
+
+def attach_forecast(models, snaps, window_min=15, horizon_h=2.0,
+                    floor_pct=55.0, pct=80.0):
+    """挂 forecast + 重算等级。实现放在 forecast.attach，报告层走同一份。"""
+    return forecast.attach(models, snaps, window_min, horizon_h, floor_pct, pct)
 
 
 # 一句话文案统一在 phrasing.py（报告和通知共用同一句），这里只负责排版与送达。
@@ -223,9 +226,12 @@ def balloon(title, body, hold_sec=8.0):
 
 def main():
     ap = argparse.ArgumentParser(description="配额阈值提醒")
-    ap.add_argument("--window", type=int, default=15, help="增速采样窗口（分钟）")
-    ap.add_argument("--warn", type=float, default=1.0, help="预计多少小时内触限就提醒")
+    ap.add_argument("--window", type=int, default=15, help="观测窗口（分钟），数窗口内涨了几格")
+    ap.add_argument("--warn", type=float, default=2.0,
+                    help="多少小时内会到上限就提前提醒（默认 2）")
     ap.add_argument("--pct", type=float, default=80.0, help="已用百分比达到多少就提醒")
+    ap.add_argument("--floor", type=float, default=55.0,
+                    help="低于此百分比不做提前提醒（剩余太多，外推不可靠）")
     ap.add_argument("--cooldown", type=int, default=120, help="同一提醒的冷却分钟数")
     ap.add_argument("--dry-run", action="store_true", help="只打印，不弹窗")
     ap.add_argument("--force", action="store_true", help="忽略冷却")
@@ -237,14 +243,19 @@ def main():
         log(report.get("error") or "没有可用的配额快照")
         return 0
 
+    # 预测要的是「窗口内涨了几格」，得看原始快照。build_report 里没有这个量，
+    # 所以这里再读一次（两次全量扫，约 1.5 秒；任务每 10 分钟跑一次，可以接受）。
+    snaps, _, _ = qw.load_snapshots()
+    attach_forecast(models, snaps, args.window, args.warn, args.floor, args.pct)
+
     state = load_state()
-    hits = pick_alerts(models, args.pct, args.warn)
+    hits = pick_alerts(models, args.pct)
     todo = filter_cooldown(hits, state, args.cooldown, args.force)
 
     stamp = dt.datetime.now().strftime("%H:%M:%S")
-    log("[%s] 本周期 %d 个模型，命中 %d，待提醒 %d（阈值 已用 %.0f%% / %.1f 小时内触限）"
+    log("[%s] 本周期 %d 个模型，命中 %d，待提醒 %d（已用 %.0f%% / %.1f 小时内 / 地板 %.0f%%）"
           % (stamp, sum(1 for m in models if not m.get("stale")), len(hits), len(todo),
-             args.pct, args.warn))
+             args.pct, args.warn, args.floor))
 
     if not todo:
         return 0

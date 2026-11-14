@@ -25,9 +25,10 @@ if HERE not in sys.path:
 
 import quota_watch as qw  # noqa: E402  同源数据层
 import phrasing  # noqa: E402  与通知共用同一句文案
+import forecast  # noqa: E402  与通知共用同一套预测
 
 CACHE_TTL = 300.0
-WINDOW_MIN = 60
+WINDOW_MIN = 15
 
 
 def cache_file():
@@ -59,6 +60,12 @@ def log_signature():
     return parts
 
 
+def attach(models, snaps):
+    """挂 forecast，并把 level/verdict 改成只看百分比。与通知走同一份实现。"""
+    return forecast.attach(models, snaps, WINDOW_MIN, forecast.HORIZON_H,
+                           forecast.FLOOR_PCT, forecast.GATE_PCT)
+
+
 def load_report(use_cache=True):
     """返回 (report, 是否命中缓存, 取数秒数)。"""
     t0 = time.perf_counter()
@@ -73,7 +80,13 @@ def load_report(use_cache=True):
         except (OSError, ValueError, KeyError):
             pass
 
-    rep = qw.build_report(WINDOW_MIN, 3.0)
+    rep = qw.build_report(WINDOW_MIN, forecast.HORIZON_H)
+    # 预测要「窗口内涨了几格」，build_report 里没有这个量，得再读一次原始快照。
+    # 只在缓存未命中时发生，等于每次重扫多付一遍全量读（约 0.9 秒）。
+    snaps, _, _ = qw.load_snapshots()
+    attach(rep.get("models") or [], snaps)
+    rep["has_risk"] = any(m.get("level") == "critical"
+                          for m in rep.get("models") or [] if not m.get("stale"))
     cost = time.perf_counter() - t0
     if path:
         try:
@@ -96,21 +109,6 @@ def fmt_age(ts):
     return "%.1f 小时前" % (sec / 3600.0)
 
 
-def fmt_eta(m):
-    """触限预测。上游对低置信度样本会主动给出 None，这里要说清原因而不是留空。"""
-    eta = m.get("eta_hours_to_limit")
-    if eta is None:
-        if m.get("rate_pct_per_hour"):
-            return "暂不预测"
-        return "—"
-    if eta > 48:
-        return "> 48 小时"
-    return "%.1f 小时后" % eta
-
-
-CONF = {"high": "高", "medium": "中", "low": "低", "idle": "无消耗", "none": "—"}
-
-
 def render(rep, cached, cost):
     models = [m for m in rep.get("models", []) if not m.get("stale")]
     if rep.get("error") or not models:
@@ -118,15 +116,14 @@ def render(rep, cached, cost):
             rep.get("error") or "日志里没有带 quota 的行，先正常对话一轮。")
 
     lines = [
-        "| 模型 | 已用 | 本周期重置 | 增速 | 预计触限 | 可信度 | 数据新鲜度 |",
-        "|---|---:|---|---:|---|---|---|",
+        "| 模型 | 已用 | 本周期重置 | 近 %d 分钟 | 按此速度 | 数据新鲜度 |" % WINDOW_MIN,
+        "|---|---:|---|---:|---|---|",
     ]
     for m in models:
-        rate = "%.1f%%/h" % m["rate_pct_per_hour"] if m.get("rate_pct_per_hour") else "—"
-        lines.append("| `%s` | %g%% | %s | %s | %s | %s | %s |" % (
+        lines.append("| `%s` | %g%% | %s | %s | %s | %s |" % (
             m["model"], m["percent_used"], m.get("reset_local") or "—",
-            rate, fmt_eta(m),
-            CONF.get(m.get("rate_confidence"), "—"),
+            forecast.obs_cell(m.get("forecast")),
+            forecast.eta_cell(m.get("forecast"), WINDOW_MIN),
             fmt_age(m.get("last_seen_ts"))))
 
     stale = len(rep.get("models", [])) - len(models)
@@ -137,7 +134,8 @@ def render(rep, cached, cost):
             "（另有 %d 个停在上一周期，未计入）" % stale if stale else "",
             cost, "命中缓存" if cached else "重新扫描", qw.HOME),
     ]
-    risk = [m for m in models if m.get("level") == "critical"]
+    risk = [m for m in models
+            if forecast.should_notify(m) or m.get("level") == "critical"]
     if risk:
         tail.append("")
         tail.append("**注意**：%s。" % "；".join(phrasing.line(m) for m in risk))

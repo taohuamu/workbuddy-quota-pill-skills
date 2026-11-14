@@ -32,7 +32,7 @@ STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~
 RUNTIME_DIR = os.path.join(STATE_DIR, "runtime")
 # 任务跑的是这里的副本，不是技能目录。notify.py 依赖同目录另外两个模块，漏一个就
 # 直接 ImportError——而且任务失败是静默的，只有 --status 的 LastTaskResult 会变。
-STAGE_FILES = ("notify.py", "quota_watch.py", "phrasing.py")
+STAGE_FILES = ("notify.py", "quota_watch.py", "phrasing.py", "forecast.py")
 # 安装时用的间隔与阈值写在这里，供 --status 回读。任务定义里也有这些参数，但两条
 # 后端的 Arguments 格式不同（schtasks 是转义过的整串），解析容易出错，所以记自己的账。
 INSTALL_RECORD = os.path.join(STATE_DIR, "install.json")
@@ -100,16 +100,16 @@ def _q(text):
     return "'" + str(text).replace("'", "''") + "'"
 
 
-def _thresholds(pct, warn):
+def _thresholds(pct, warn, floor):
     """写进任务动作的阈值参数。
 
     不传也能跑（notify.py 有默认值），但显式落盘才可核对：同一个任务在哪台机器上
     用的是什么阈值，看任务定义就能知道，不必翻代码。%g 让 80.0 写成 80。
     """
-    return "--pct %g --warn %g" % (pct, warn)
+    return "--pct %g --warn %g --floor %g" % (pct, warn, floor)
 
 
-def save_install_record(every, pct, warn, be):
+def save_install_record(every, pct, warn, floor, be):
     """记下这次安装用的间隔与阈值，供 --status 回读。
 
     记不下来不该让安装失败——这份记录是给人看的补充信息，不是运行依赖。
@@ -121,6 +121,7 @@ def save_install_record(every, pct, warn, be):
         "every_minutes": every,
         "pct": pct,
         "warn": warn,
+        "floor": floor,
         "backend": be,
     }
     try:
@@ -251,10 +252,10 @@ def status():
     print("解释器  :", python_for_task())
     rec = load_install_record()
     if rec:
-        print("安装参数: 每 %s 分钟、已用 ≥%g%% 或 %g 小时内触限（%s 安装，后端 %s）"
+        print("安装参数: 每 %s 分钟、已用 ≥%g%% 或 %g 小时内到上限、预测地板 %g%%（%s 安装，后端 %s）"
               % (rec.get("every_minutes", "?"), rec.get("pct", 0.0),
-                 rec.get("warn", 0.0), rec.get("installed_at", "?"),
-                 rec.get("backend", "?")))
+                 rec.get("warn", 0.0), rec.get("floor", 55.0),
+                 rec.get("installed_at", "?"), rec.get("backend", "?")))
         print("          这是安装当时的记录；若之后手改过任务定义，以任务为准")
     else:
         print("安装参数: 无记录（早于 0.4.5 的安装没有这份记录，重跑一次安装即可写入）")
@@ -263,13 +264,13 @@ def status():
     return 0
 
 
-def install(every, forced=None, dry_run=False, pct=80.0, warn=1.0):
+def install(every, forced=None, dry_run=False, pct=80.0, warn=2.0, floor=55.0):
     if not os.path.exists(NOTIFY):
         print("找不到提醒脚本:", NOTIFY)
         return 1
     be = backend(forced)
     target = os.path.join(RUNTIME_DIR, "notify.py")
-    extra = _thresholds(pct, warn)
+    extra = _thresholds(pct, warn, floor)
 
     if dry_run:
         print("后端      : %s" % be)
@@ -304,7 +305,7 @@ def install(every, forced=None, dry_run=False, pct=80.0, warn=1.0):
         return 1
 
     print("已安装：每 %d 分钟检查一次，仅在当前用户登录时运行（后端 %s）" % (every, be))
-    save_install_record(every, pct, warn, be)
+    save_install_record(every, pct, warn, floor, be)
     status()
     return 0
 
@@ -373,7 +374,10 @@ def main():
     ap = argparse.ArgumentParser(description="配额提醒计划任务")
     ap.add_argument("--every", type=int, default=10, help="检查间隔（分钟）")
     ap.add_argument("--pct", type=float, default=80.0, help="已用百分比达到多少就提醒（默认 80）")
-    ap.add_argument("--warn", type=float, default=1.0, help="预计多少小时内触限就提醒（默认 1）")
+    ap.add_argument("--warn", type=float, default=2.0,
+                    help="多少小时内会到上限就提前提醒（默认 2）")
+    ap.add_argument("--floor", type=float, default=55.0,
+                    help="低于此百分比不做提前提醒（默认 55）")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--uninstall", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="只打印将执行的命令，不注册任务")
@@ -384,7 +388,7 @@ def main():
         return status()
     if a.uninstall:
         return uninstall()
-    return install(a.every, a.backend, a.dry_run, a.pct, a.warn)
+    return install(a.every, a.backend, a.dry_run, a.pct, a.warn, a.floor)
 
 
 if __name__ == "__main__":

@@ -96,12 +96,13 @@ python quota-pill/scripts/sync_check.py --fix  # 用上游覆盖副本
 python quota-pill/scripts/probe_scheduler.py               # 先看本机哪条路可用
 python quota-pill/scripts/notify.py --dry-run              # 再看判定
 python quota-pill/scripts/install_task.py --every 10       # 注册，每 10 分钟
-python quota-pill/scripts/install_task.py --every 10 --pct 70 --warn 2   # 同上，并改阈值
+python quota-pill/scripts/install_task.py --every 10 --pct 70 --warn 3 --floor 60   # 同上，并改阈值
 python quota-pill/scripts/install_task.py --status
 python quota-pill/scripts/install_task.py --uninstall
 ```
 
-阈值默认是「已用 ≥80% 或 1 小时内触限」。`--pct` / `--warn` 会写进任务动作，所以改完要重跑一次
+阈值默认是「已用 ≥80%，或按当前速度 2 小时内会到上限（且已用已过 55%）」。
+`--pct` / `--warn` / `--floor` 会写进任务动作，所以改完要重跑一次
 安装。`--status` 会打出**安装时的间隔与阈值**（存在 `%LOCALAPPDATA%\quota-pill\install.json`），
 它记的是安装那一刻；任务实际用过的值看 `notify.log` 每行末尾。
 
@@ -109,12 +110,12 @@ python quota-pill/scripts/install_task.py --uninstall
 ScheduledTasks 模块（经 powershell 调用），两者都不可用才把命令交给你手动执行。
 `--backend powershell` 可强制指定。判定依据与错误码对照见 `quota-pill/references/scheduling.md`。
 
-安装时会把 `notify.py`、`quota_watch.py`、`phrasing.py` 三个文件复制到
+安装时会把 `notify.py`、`quota_watch.py`、`phrasing.py`、`forecast.py` 四个文件复制到
 `%LOCALAPPDATA%\quota-pill\runtime\`，任务指向这份副本，
 所以删掉、移动、重装技能都不会让任务指向空路径；改了脚本要重跑一次安装，`--status` 会提示副本落后。
 `--dry-run` 只打印将执行的命令，不建目录也不注册任务。
 
-触发条件二选一：任一模型已用达 80%，或预计 1 小时内触限（`--pct` / `--warn` 可调）；通知内容包含触发的模型以及所有 `critical` 的。同一模型同一等级 2 小时内不重复提醒，等级变化会再弹一次。状态记在 `%LOCALAPPDATA%\quota-pill\notify-state.json`。
+触发条件二选一：任一模型已用达 80%，或按当前速度 2 小时内会到上限（`--pct` / `--warn` 可调，且要求已用过 `--floor`）；通知内容包含触发的模型以及所有 `critical` 的，正文只给结果（「按此速度约 40 分钟后到上限」/「近 15 分钟无新增」）。同一模型同一等级 2 小时内不重复提醒，等级变化会再弹一次。状态记在 `%LOCALAPPDATA%\quota-pill\notify-state.json`。
 
 **卸载**：`install.py --uninstall` 会先删计划任务，再删技能目录。顺序是刻意的——反过来，两次操作之间
 若正好到点，任务会去拉一个已经不存在的脚本。删之前先 `/Query` 一次，任务本就不存在时按「没有」处理，
