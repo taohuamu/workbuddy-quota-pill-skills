@@ -27,7 +27,7 @@ INK = (17, 17, 17, 255)       # 胶囊描边：纯黑太硬，用近黑
 FILL = (52, 194, 107, 255)    # 亮绿，呼应胶囊态里那个百分比
 RADIUS = int(W * 0.22)        # 圆角方
 STROKE = max(1, int(W * 0.006))
-CAP_STROKE = max(2, int(W * 0.009))
+CAP_STROKE = max(2, int(W * 0.007))
 
 CAP_W_RATIO = 0.60         # 胶囊占画布宽度
 CAP_H_RATIO = 0.24
