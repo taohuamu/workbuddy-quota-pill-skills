@@ -22,6 +22,8 @@ workbuddy-quota-pill-skills/
 │       ├── data-source.md       # 字段含义、覆盖率、模型清单（易变）
 │       ├── troubleshooting.md   # 排查顺序
 │       └── scheduling.md        # 调度后端选路、错误码、已知限制
+├── assets/
+│   └── icon-512.png             # 市场图标（另出 256 / 128 供列表缩略）
 ├── tools/
 │   ├── install.py               # 装/卸到技能目录（默认建目录联接）
 │   ├── package.py               # 打 zip 分发物（含试装说明与哈希清单）
