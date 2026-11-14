@@ -176,6 +176,70 @@ def build(tag):
     return 0 if verify(out, top, files) else 1
 
 
+def build_market(tag):
+    """技能市场上架包：SKILL.md 必须在包根。
+
+    服务端解包后按 ENOENT SKILL.md 判失败，所以不能套版本目录。与分发包的差别还有：
+    不带 START-HERE / MANIFEST / README——那些是给收包的人看的，放进上架包只会让审核
+    多判断一次「这些是不是多余的」。
+    """
+    os.makedirs(OUT_ROOT, exist_ok=True)
+    # 文件名固定为 quota-pill.zip：上传表单没填 name 时，服务端会拿文件名去推导技能名
+    # （deriveSkillUploadName → normalizeSkillUploadSegment），带日期后缀会被原样吃进去。
+    out = os.path.join(OUT_ROOT, "quota-pill.zip")
+
+    files = []
+    for dirpath, dirnames, filenames in os.walk(SKILL):
+        dirnames[:] = sorted(d for d in dirnames if d not in SKIP_DIRS)
+        for fn in sorted(filenames):
+            if os.path.splitext(fn)[1].lower() in SKIP_EXT:
+                continue
+            path = os.path.join(dirpath, fn)
+            files.append((path, os.path.relpath(path, SKILL).replace(os.sep, "/")))
+
+    if not any(rel == "SKILL.md" for _, rel in files):
+        print("quota-pill/SKILL.md 不存在，无法出上架包。")
+        return 1
+
+    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
+        for path, rel in files:
+            z.write(path, rel)
+
+    size = os.path.getsize(out)
+    print("已生成上架包：%s  （%d 个文件，%.0f KB，技能版本 %s）"
+          % (out, len(files), size / 1024.0, version()))
+    return 0 if verify_market(out, files) else 1
+
+
+def verify_market(out, files):
+    """上架包的验收标准只有一条硬的：SKILL.md 在根。其余是防止打包时带错东西。"""
+    bad = []
+    with zipfile.ZipFile(out) as z:
+        names = z.namelist()
+        if "SKILL.md" not in names:
+            bad.append("SKILL.md 不在包根，服务端会报 ENOENT")
+        for _, rel in files:
+            if rel not in names:
+                bad.append("缺文件 " + rel)
+        for name in names:
+            if name.startswith("quota-pill/"):
+                bad.append("多了一层目录 " + name)
+            if "__pycache__" in name or name.endswith((".pyc", ".pyo")):
+                bad.append("混入字节码 " + name)
+        for _, rel in files:
+            if sha256_from_zip(z, rel) != sha256(
+                    os.path.join(SKILL, rel.replace("/", os.sep))):
+                bad.append("内容不一致 " + rel)
+
+    if bad:
+        print("\n上架包校验未通过：")
+        for b in dict.fromkeys(bad):
+            print("  - " + b)
+        return False
+    print("上架包校验通过：SKILL.md 在根、无多余层级、哈希与源文件一致。")
+    return True
+
+
 def verify(out, top, files):
     """重新打开 zip 核对：该在的在，不该在的没混进来，哈希一致。"""
     bad = []
@@ -221,8 +285,12 @@ def main():
     ap.add_argument("--tag", default=dt.date.today().strftime("%Y%m%d"),
                     help="包名后缀，默认今天日期")
     ap.add_argument("--skip-tests", action="store_true")
+    ap.add_argument("--market", action="store_true",
+                    help="只出技能市场上架包（SKILL.md 在包根）")
     args = ap.parse_args()
 
+    if args.market:
+        return build_market(args.tag)
     if not args.skip_tests and not preflight():
         return 1
     return build(args.tag)
