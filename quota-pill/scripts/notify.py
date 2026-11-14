@@ -81,17 +81,17 @@ def pick_alerts(models):
 
 
 def message_for(m):
-    """一句话说明：模型、已用、后果。"""
+    """一句话说明：模型、已用、结论。
+
+    结论取数据层的 verdict，不再另拼一套——同一个状态在报告里和通知里说法不同，
+    用户看到的是两套话。verdict 里只有「低置信度」那条自带「已用 x%」，先剥掉前缀，
+    否则会拼成「已用 82%，已用 82%，样本太短…」。
+    """
     pct = int(round(m["percent_used"]))
-    level = m["level"]
-    if level == "critical" and pct >= 95:
-        return "%s 已用 %d%%，随时会被拒" % (m["model"], pct)
-    if level == "critical":
-        return "%s 已用 %d%%，重置前会耗尽" % (m["model"], pct)
-    eta = m.get("eta_hours_to_limit")
-    if eta:
-        return "%s 已用 %d%%，约 %s后触限" % (m["model"], pct, qw.fmt_dur(eta))
-    return "%s 已用 %d%%，接近上限" % (m["model"], pct)
+    tail = (m.get("verdict") or "").strip()
+    if tail.startswith("已用"):
+        tail = tail.partition("，")[2].strip()
+    return "%s 已用 %d%%，%s" % (m["model"], pct, tail or "接近上限")
 
 
 def filter_cooldown(hits, state, cooldown_min, force):
