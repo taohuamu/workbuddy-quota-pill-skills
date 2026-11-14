@@ -23,7 +23,7 @@ W = 512 * K
 BG = (255, 255, 255, 255)     # 白底
 EDGE = (236, 238, 241, 255)   # 白底在白页面里会看不出边界，靠这道极淡描边留形
 CAP = (255, 255, 255, 255)    # 胶囊自身也是白，靠黑色描边和白底分开
-INK = (17, 17, 17, 255)       # 胶囊描边：纯黑太硬，用近黑
+CAP_LINE = (156, 163, 175, 255)  # 胶囊描边：浅灰，比黑柔和，代价是细线时对比更弱
 FILL = (52, 194, 107, 255)    # 亮绿，呼应胶囊态里那个百分比
 RADIUS = int(W * 0.22)        # 圆角方
 STROKE = max(1, int(W * 0.006))
@@ -65,7 +65,7 @@ def build():
     # 描边最后画：先画会被绿色盖住一半，露出的边缘粗细就不匀了
     ImageDraw.Draw(img).rounded_rectangle(
         [x0, y0, x0 + cw - 1, y0 + ch - 1], radius=r,
-        outline=INK, width=CAP_STROKE)
+        outline=CAP_LINE, width=CAP_STROKE)
 
     return img
 
