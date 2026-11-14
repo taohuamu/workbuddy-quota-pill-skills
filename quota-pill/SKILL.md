@@ -3,7 +3,7 @@ name: quota-pill
 description: 查询 WorkBuddy 各模型本周期（24 小时滚动窗口）的配额已用百分比、重置时刻、消耗增速与触限预测，也可开启阈值提醒（接近耗尽时弹系统通知）。当用户问额度、配额、限额还剩多少，问什么时候重置、还能撑多久、为什么数字不动、哪个模型快用完了，要一份用量摘要，或要求「快用完时提醒我」「开个额度提醒」时使用。只读本地会话日志，不联网、不登录、不改文件。
 agent_created: true
 version: 0.4.2
-license: MIT
+license: MIT, see LICENSE.txt
 display_name: "配额胶囊"
 display_name_en: "Quota Pill"
 description_zh: "在对话里查 WorkBuddy 各模型的配额用量、重置时刻与触限预测；接近耗尽时可开系统提醒。只读本地会话日志，不联网、不登录。"

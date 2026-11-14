@@ -206,10 +206,16 @@ def build_market(tag):
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
         for path, rel in files:
             z.write(path, top + "/" + rel)
+        # 许可证放进层内（官方 skill-creator 就是 skill-creator/LICENSE.txt）。
+        # 不能放 zip 根：那样顶层就有两个条目，导入器取第一层会拿错。
+        license_src = os.path.join(ROOT, "LICENSE")
+        if os.path.isfile(license_src):
+            z.write(license_src, top + "/LICENSE.txt")
 
     size = os.path.getsize(out)
+    n = len(files) + (1 if os.path.isfile(os.path.join(ROOT, "LICENSE")) else 0)
     print("已生成上架包：%s  （%d 个文件，%.0f KB，技能版本 %s）"
-          % (out, len(files), size / 1024.0, version()))
+          % (out, n, size / 1024.0, version()))
     return 0 if verify_market(out, top, files) else 1
 
 
@@ -223,6 +229,8 @@ def verify_market(out, top, files):
             bad.append("顶层目录应只有 %s，实际 %s" % (top, sorted(tops)))
         if top + "/SKILL.md" not in names:
             bad.append("%s/SKILL.md 缺失，导入器会报 ENOENT" % top)
+        if top + "/LICENSE.txt" not in names:
+            bad.append("%s/LICENSE.txt 缺失，与 SKILL.md 里 license 字段对不上" % top)
         for _, rel in files:
             if top + "/" + rel not in names:
                 bad.append("缺文件 " + rel)
