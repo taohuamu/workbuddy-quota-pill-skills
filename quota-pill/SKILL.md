@@ -50,8 +50,8 @@ allowed-tools: Bash(python:*) Read
    「没有可用的调度后端」时才把命令交给用户，且**不要尝试绕过**（改注册表、换 shell、写启动项
    都不算解决），说明这是本机策略限制、不是脚本缺陷。想先看本机走哪条路：
    `python "${CODEBUDDY_SKILL_DIR}/scripts/probe_scheduler.py"`。
-3. 触发条件是 level 为 `critical` 或 `warn`；同一模型同一等级 2 小时内只提醒一次，等级升级
-   会再弹。
+3. 触发条件二选一：任一模型已用达 80%，或预计 1 小时内触限（`--pct` / `--warn` 可调）。
+   同一模型同一等级 2 小时内只提醒一次，等级变化会再弹。
 
 副本机制、后端判定、错误码、卸载顺序见 `references/scheduling.md`。
 

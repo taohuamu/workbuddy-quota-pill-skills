@@ -74,9 +74,19 @@ def save_state(state):
 
 # ---------------------------------------------------------------- 判定
 
-def pick_alerts(models):
-    """取本周期内 level 为 critical / warn 的模型，危险优先。"""
-    hits = [m for m in models if not m.get("stale") and m.get("level") in LEVEL_CN]
+def pick_alerts(models, min_pct=80.0):
+    """要提醒的模型：已用达到 min_pct，或等级为 critical / warn。
+
+    只看 level 不够。level 里混着两套口径：critical 既有「已到顶」，也有「按当前速度
+    撑不到重置」——后者可能才用了 20%；反过来，用了 85% 但增速平缓的会判成 ok。
+    提醒只关心两件事：快用完了，或者马上就要没了。
+    """
+    hits = []
+    for m in models:
+        if m.get("stale"):
+            continue
+        if m.get("level") in LEVEL_CN or (m.get("percent_used") or 0) >= min_pct:
+            hits.append(m)
     hits.sort(key=lambda m: (LEVEL_RANK[m["level"]], -m["percent_used"]))
     return hits
 
@@ -208,7 +218,8 @@ def balloon(title, body, hold_sec=8.0):
 def main():
     ap = argparse.ArgumentParser(description="配额阈值提醒")
     ap.add_argument("--window", type=int, default=15, help="增速采样窗口（分钟）")
-    ap.add_argument("--warn", type=float, default=3.0, help="预计触限小时数阈值")
+    ap.add_argument("--warn", type=float, default=1.0, help="预计多少小时内触限就提醒")
+    ap.add_argument("--pct", type=float, default=80.0, help="已用百分比达到多少就提醒")
     ap.add_argument("--cooldown", type=int, default=120, help="同一提醒的冷却分钟数")
     ap.add_argument("--dry-run", action="store_true", help="只打印，不弹窗")
     ap.add_argument("--force", action="store_true", help="忽略冷却")
@@ -221,19 +232,20 @@ def main():
         return 0
 
     state = load_state()
-    hits = pick_alerts(models)
+    hits = pick_alerts(models, args.pct)
     todo = filter_cooldown(hits, state, args.cooldown, args.force)
 
     stamp = dt.datetime.now().strftime("%H:%M:%S")
-    log("[%s] 本周期 %d 个模型，命中 %d，待提醒 %d"
-          % (stamp, sum(1 for m in models if not m.get("stale")), len(hits), len(todo)))
+    log("[%s] 本周期 %d 个模型，命中 %d，待提醒 %d（阈值 已用 %.0f%% / %.1f 小时内触限）"
+          % (stamp, sum(1 for m in models if not m.get("stale")), len(hits), len(todo),
+             args.pct, args.warn))
 
     if not todo:
         return 0
 
     # 一条一行。用「；」串成一行的话，长模型名会把折行位置挤到名字中间，
     # 断在哪儿不可控；自己换行，至少每条是完整的。
-    lines = [phrasing.line(m) for m in todo[:2]]
+    lines = [phrasing.line(m, args.pct) for m in todo[:2]]
     if len(todo) > 2:
         lines.append("另 %d 个模型需注意" % (len(todo) - 2))
     body = "\n".join(lines)

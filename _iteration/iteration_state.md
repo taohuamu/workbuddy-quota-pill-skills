@@ -36,6 +36,7 @@
 | C6 | 删 `metadata.version`，`version()` 改读顶层 `^version:` | `quota-pill/SKILL.md`、`tools/package.py` | 四种写法取值正确、缩进不误命中；两种包版本号均为 0.4.3 |
 | C7 | `message_for()` 改用数据层的 `verdict`，删掉自己那套 level/eta 分支 | `quota-pill/scripts/notify.py` | 六种输入拼接无重复百分比；`--dry-run` rc=0 |
 | C8 | 文案独立成 `phrasing.py`，报告与通知共用；统一「多久触限」口径 | 新增 `phrasing.py`，改 `notify.py`、`quota_report.py`、`install_task.py`、`docs/how-it-works.md` | 八种情形文案正确；报告注意行同步；`STAGE_FILES` 补 `phrasing.py` 后副本可独立运行 |
+| C9 | 提醒触发条件改为「已用 ≥80% 或 1 小时内触限」，`--warn` 默认 3.0→1.0，新增 `--pct` | `notify.py`、`phrasing.py`、`SKILL.md`、`README.md`、`references/scheduling.md`、`docs/how-it-works.md` | 七种情形判定正确；85% 但增速平缓的文案改为「用量偏高，暂无触限风险」，不再说「充足」 |
 
 
 ## 观察项与不做事项

@@ -25,8 +25,13 @@ def _within(hours):
     return "%s内触限" % qw.fmt_dur(hours).replace(".0 小时", " 小时")
 
 
-def conclusion(m):
-    """结论文案。m 是 quota_watch 产出的模型字典。"""
+def conclusion(m, high_pct=80.0):
+    """结论文案。m 是 quota_watch 产出的模型字典。
+
+    high_pct 与 notify.py 的 --pct 保持一致：达到这个百分比就会被提醒，所以
+    「按当前节奏够用」在这条线以上不能说成「额度充足」——一边提醒一边说充足，
+    读的人只会觉得文案在敷衍。
+    """
     tail = (m.get("verdict") or "").strip()
     if tail.startswith("已用"):
         # 低置信度那条把百分比写在句首（"已用 82%，样本太短…"）。百分比由 line()
@@ -34,16 +39,18 @@ def conclusion(m):
         tail = tail.partition("，")[2].strip()
     if "无法预测" in tail:
         return "样本不足，无法预测触限时间"
+    if tail == "按当前节奏够用":
+        return ("用量偏高，暂无触限风险"
+                if (m.get("percent_used") or 0) >= high_pct else "剩余额度充足")
     # 「撑不到重置」和「X 小时内触限」说的是同一件事，差别只在有没有给时间。
-    # 有 eta 就统一按「多久」说，顺手把「3.0 小时」写成「3 小时」——
-    # 25% 已用配「即将触限」会让人以为马上就没了，其实还有几个小时。
+    # 有 eta 就统一按「多久」说，顺手把「3.0 小时」写成「3 小时」。
     eta = m.get("eta_hours_to_limit")
     if eta and (tail == "重置前就会耗尽" or tail.endswith("内触限")):
         return _within(eta)
     return VERDICT_TEXT.get(tail, tail or "接近上限")
 
 
-def line(m):
+def line(m, high_pct=80.0):
     """「模型 已用 N%，结论」——报告与通知共用这一句。"""
     return "%s 已用 %d%%，%s" % (
-        m["model"], int(round(m["percent_used"])), conclusion(m))
+        m["model"], int(round(m["percent_used"])), conclusion(m, high_pct))
