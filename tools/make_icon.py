@@ -22,10 +22,12 @@ W = 512 * K
 
 BG = (255, 255, 255, 255)     # 白底
 EDGE = (236, 238, 241, 255)   # 白底在白页面里会看不出边界，靠这道极淡描边留形
-CAP_REST = (209, 213, 219, 255)  # 剩余段，纯白底上白胶囊等于看不见，改用浅灰
+CAP = (255, 255, 255, 255)    # 胶囊自身也是白，靠黑色描边和白底分开
+INK = (17, 17, 17, 255)       # 胶囊描边：纯黑太硬，用近黑
 FILL = (52, 194, 107, 255)    # 亮绿，呼应胶囊态里那个百分比
 RADIUS = int(W * 0.22)        # 圆角方
 STROKE = max(1, int(W * 0.006))
+CAP_STROKE = max(2, int(W * 0.014))
 
 CAP_W_RATIO = 0.60         # 胶囊占画布宽度
 CAP_H_RATIO = 0.24
@@ -47,7 +49,7 @@ def build():
     d.rounded_rectangle([0, 0, W - 1, W - 1], radius=RADIUS,
                         outline=EDGE, width=STROKE)
     d.rounded_rectangle([x0, y0, x0 + cw - 1, y0 + ch - 1], radius=r,
-                        fill=CAP_REST)
+                        fill=CAP)
 
     # 已用部分做成矩形后用胶囊形状裁切：手算圆角在右侧会和胶囊边界错开
     cap_mask = Image.new("L", (W, W), 0)
@@ -59,6 +61,11 @@ def build():
         [x0, y0, x0 + int(cw * USED_RATIO), y0 + ch - 1], fill=FILL)
     layer.putalpha(ImageChops.multiply(layer.split()[3], cap_mask))
     img = Image.alpha_composite(img, layer)
+
+    # 描边最后画：先画会被绿色盖住一半，露出的边缘粗细就不匀了
+    ImageDraw.Draw(img).rounded_rectangle(
+        [x0, y0, x0 + cw - 1, y0 + ch - 1], radius=r,
+        outline=INK, width=CAP_STROKE)
 
     return img
 
