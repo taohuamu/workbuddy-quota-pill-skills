@@ -26,26 +26,54 @@ WorkBuddy 每轮请求都会在本地会话日志里写一行，其中 `provider
 
 | `providerData.model` | `quota.model` | 带 quota / 带 usage | 说明 |
 |---|---|---:|---|
-| `deepseek-v4.1-flash` | 同名 | 约 51% | 更新最及时，基本每轮都带 |
+| `deepseek-v4.1-flash` | 同名 | 约 57% | 更新最及时，基本每轮都带 |
 | `hy4-free` | `hy4` | 约 9% | 数字可能长时间停住，属正常 |
 | `glm-5.3-flash` | — | 0% | 未见下发，按积分计费 |
 | `deepseek-v4-pro` | — | 0% | 记录集中在配额字段上线之前 |
-| `hy3` | `hy3` | 少量 | 样本极少 |
-| `kimi-k3-1` | `kimi-k3` | 极少 | 仅 3 条历史记录 |
-| `kimi-k3.1-pro` | 同名 | 极少 | 仅 3 条历史记录 |
-| `glm-5.3` | 同名 | 极少 | 仅 1 条（1%），但有配额——与 5.3-flash 不同，别按系列一刀切 |
-| `step-5-preview` | 同名 | 极少 | 仅 1 条历史记录 |
+| `hy3` | `hy3` | 少量 | 35 次调用中 2 次带 |
+| `kimi-k3-1` | `kimi-k3` | 极少 | 3 次调用全部带 |
+| `kimi-k3.1-pro` | 同名 | 极少 | 3 次调用全部带 |
+| `glm-5.3` | 同名 | 极少 | 2 次调用中 1 次带，但有配额——与 5.3-flash 不同，别按系列一刀切 |
+| `step-5-preview` | 同名 | 极少 | 1 次调用，带 |
+| `mimo-v2.6-pro`、`glm-5.2`、`space-bunny`、`minimax-m3.1-flash`、`kimi-k2.8-preview`、`fast-model`、`hy4free` | — | 0% | 有调用记录，服务端一律没下发 quota。注意 `hy4free` 与 `hy4-free` 是两个不同的 `providerData.model` |
 
 同一模型出现在两处时以 `quota.model` 为准。**这张表不要背下来**，每次回答以脚本输出为准。
 
 ## 核对命令
 
+两件事要分开核对。只看报告会漏掉「有调用记录但没配额」的模型，而上面那张表里一半是这类。
+
+**一、本周期有哪些模型有配额**（报告口径）
+
 ```bash
 python "${CODEBUDDY_SKILL_DIR}/scripts/quota_report.py" --no-cache
 ```
 
-- 输出里出现本文件未登记的模型 → 服务端新增了配额池，更新本文件并改「上次核对」日期。
-- 某个模型的「数据新鲜度」长期是几小时前 → 该模型字段稀疏，不是读取失败。
+**二、日志里一共出现过哪些模型**（含没有配额的）
+
+```python
+# 存成 cov.py 运行：统计每个 providerData.model 出现过多少次
+import collections, glob, json, os
+
+root = os.path.expanduser("~/.workbuddy/projects")
+counter = collections.Counter()
+for path in glob.glob(os.path.join(root, "*", "*.jsonl")):
+    for line in open(path, encoding="utf-8", errors="ignore"):
+        if not line.strip():
+            continue
+        try:
+            pd = json.loads(line).get("providerData") or {}
+        except ValueError:
+            continue
+        if pd.get("model"):
+            counter[pd["model"]] += 1
+for model, n in counter.most_common():
+    print("%-24s %d" % (model, n))
+```
+
+- 第一条里有、表里没有的模型 → 新配额池，补进表并改「上次核对」日期。
+- 第二条里有、第一条里没有的 → 有调用但没下发 quota，补进表的 0% 区。
+  只跑第一条永远发现不了这一类，这是上一版核对方法漏掉的部分。
 
 ## 已知缺失
 

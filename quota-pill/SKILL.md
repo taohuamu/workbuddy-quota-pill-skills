@@ -12,8 +12,6 @@ visibility: "public"
 allowed-tools: Bash(python:*) Read
 metadata:
   version: "0.4.2"
-  requires:
-    bins: [python]
 ---
 
 # 配额胶囊（技能版）
@@ -34,36 +32,30 @@ metadata:
 
 ## 快速指导
 
-1. 运行 `python "${CODEBUDDY_SKILL_DIR}/scripts/quota_report.py"`；若 `python` 不存在，改用 `py`。**必须用绝对路径**——工作目录不在技能目录下，相对路径必然找不到文件。
-2. 把输出的表格原样放进回答：不要重排行序，不要四舍五入改写数字，不要删掉末行的「取数耗时 / 日志目录」。
+1. 运行 `python "${CODEBUDDY_SKILL_DIR}/scripts/quota_report.py"`；若 `python` 不存在，改用 `py`。
+   **必须用绝对路径**——工作目录不在技能目录下，相对路径必然找不到文件。两个都没有就如实
+   说明本机缺少 Python，不要尝试安装或改 PATH。
+2. 把输出的表格原样放进回答：不要重排行序，不要四舍五入改写数字，不要删掉末行的
+   「取数耗时 / 日志目录」。若输出里还有「**注意**：…存在触限风险」一行，一并保留——
+   那是唯一把风险顶到眼前的地方。
 3. 表格后补一句结论：哪个模型最接近触限、预计还有多久；若某行显示「暂不预测」，照实说明样本不足，不要自己补算。
 4. 需要解释字段或排查「为什么没有某个模型」时，读 `references/data-source.md`。
 
 ## 主动提醒（可选附件，默认关闭）
 
-技能本身是「问了才跑」。只有用户明确要求「快用完时提醒我」「开个额度提醒」时才启用。
-不要主动建议，也不要装完技能就顺手装上——它会在系统里留一个计划任务。
+只有用户明确要求「快用完时提醒我」「开个额度提醒」时才启用；不要主动建议，也不要装完技能
+就顺手装上——它会在系统里留一个计划任务。
 
-1. 直接注册：`python "${CODEBUDDY_SKILL_DIR}/scripts/install_task.py" --every 10`
-   成功即完成，不需要用户再做什么。加 `--dry-run` 只打印将执行的命令，不落地。
-2. 脚本自己选调度后端：`schtasks.exe` → PowerShell ScheduledTasks 模块 → 两者都不行才交人工。
-   **只有它打印「没有可用的调度后端」时**才把命令交给用户；此时**不要尝试绕过**（改注册表、
-   换 shell、写启动项都不算解决问题），并说明这是本机策略限制、不是脚本缺陷。
-3. 查看 `--status`，关闭 `--uninstall`。想强制换后端加 `--backend powershell`。
+1. 注册：`python "${CODEBUDDY_SKILL_DIR}/scripts/install_task.py" --every 10`，成功即完成。
+   加 `--dry-run` 只打印将执行的命令；`--status` 查看；`--uninstall` 关闭。
+2. 脚本自己选后端（`schtasks.exe` → PowerShell ScheduledTasks 模块 → 人工）。**只有**它打印
+   「没有可用的调度后端」时才把命令交给用户，且**不要尝试绕过**（改注册表、换 shell、写启动项
+   都不算解决），说明这是本机策略限制、不是脚本缺陷。想先看本机走哪条路：
+   `python "${CODEBUDDY_SKILL_DIR}/scripts/probe_scheduler.py"`。
+3. 触发条件是 level 为 `critical` 或 `warn`；同一模型同一等级 2 小时内只提醒一次，等级升级
+   会再弹。
 
-安装时会把 `notify.py` 与数据层复制到 `%LOCALAPPDATA%\quota-pill\runtime\`，任务动作指向
-这份副本而不是技能目录——删掉、移动、重装技能都不会让任务指着空路径。代价是改了脚本要
-重跑一次安装；`--status` 会提示副本落后。
-
-判断本机走哪条路：`python "${CODEBUDDY_SKILL_DIR}/scripts/probe_scheduler.py"`，一次给出
-`schtasks` / PowerShell / ScheduledTasks 模块 / 是否管理员 四项状态与推荐后端。
-判定条件、错误码对照与各后端能力差异见 `references/scheduling.md`。
-
-触发条件是 level 为 `critical` 或 `warn`，与报告窗一致；同一模型同一等级 2 小时内只提醒一次，等级升级（注意→危险）会再弹。
-
-**卸载**：`install_task.py --uninstall` 会先删任务再删目录——反过来，两次操作之间若正好
-到点，任务会去拉一个已经不存在的脚本。任务本就不存在时报「本来就不存在」，属正常。
-仓库目录下的 `tools/install.py --uninstall` 也会按此顺序一次做完（它不随技能包分发）。
+副本机制、后端判定、错误码、卸载顺序见 `references/scheduling.md`。
 
 ## 高信号规则
 
