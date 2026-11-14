@@ -32,8 +32,7 @@ workbuddy-quota-pill-skills/
     └── how-it-works.md          # 运行逻辑：链路、判定、缓存、失效模式
 ```
 
-为什么这样分层、每一步在判什么、哪些坑已经踩过，见 [`docs/how-it-works.md`](docs/how-it-works.md)。
-那篇讲逻辑，这篇讲用法，不重复。
+具体的分层原因和经历请见 [`docs/how-it-works.md`](docs/how-it-works.md)。
 
 ## 安装
 
