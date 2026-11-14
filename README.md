@@ -10,11 +10,12 @@
 workbuddy-quota-pill-skills/
 ├── LICENSE                      # MIT
 ├── quota-pill/                  # 技能本体，可直接放进 ~/.workbuddy/skills/
-│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒（73 行）
+│   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒
 │   ├── scripts/
 │   │   ├── quota_watch.py       # 数据层，与主项目逐字节同源
 │   │   ├── quota_report.py      # 输出层：Markdown 表格 + 签名缓存
 │   │   ├── notify.py            # 阈值提醒：命中时发系统通知
+│   │   ├── phrasing.py          # 一句话文案，报告与通知共用同一句
 │   │   ├── install_task.py      # 注册/注销提醒用的计划任务（自动选后端）
 │   │   ├── probe_scheduler.py   # 探测 schtasks / 定时任务模块是否可用
 │   │   └── sync_check.py        # 校验副本是否与主项目脱节
@@ -95,15 +96,20 @@ python quota-pill/scripts/sync_check.py --fix  # 用上游覆盖副本
 python quota-pill/scripts/probe_scheduler.py               # 先看本机哪条路可用
 python quota-pill/scripts/notify.py --dry-run              # 再看判定
 python quota-pill/scripts/install_task.py --every 10       # 注册，每 10 分钟
+python quota-pill/scripts/install_task.py --every 10 --pct 70 --warn 2   # 同上，并改阈值
 python quota-pill/scripts/install_task.py --status
 python quota-pill/scripts/install_task.py --uninstall
 ```
+
+阈值默认是「已用 ≥80% 或 1 小时内触限」。`--pct` / `--warn` 会写进任务动作，所以改完要重跑一次
+安装；`--status` 能看到的只有任务本身，阈值在任务定义的 Arguments 里。
 
 **注册会自动选后端**：先试 `schtasks.exe`，它被安全策略拦死（进程起不来）时改用系统自带的
 ScheduledTasks 模块（经 powershell 调用），两者都不可用才把命令交给你手动执行。
 `--backend powershell` 可强制指定。判定依据与错误码对照见 `quota-pill/references/scheduling.md`。
 
-安装时会把 `notify.py` 与数据层复制到 `%LOCALAPPDATA%\quota-pill\runtime\`，任务指向这份副本，
+安装时会把 `notify.py`、`quota_watch.py`、`phrasing.py` 三个文件复制到
+`%LOCALAPPDATA%\quota-pill\runtime\`，任务指向这份副本，
 所以删掉、移动、重装技能都不会让任务指向空路径；改了脚本要重跑一次安装，`--status` 会提示副本落后。
 `--dry-run` 只打印将执行的命令，不建目录也不注册任务。
 

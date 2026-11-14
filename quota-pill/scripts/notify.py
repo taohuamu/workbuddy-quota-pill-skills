@@ -27,7 +27,6 @@ import phrasing
 STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "quota-pill")
 STATE_FILE = os.path.join(STATE_DIR, "notify-state.json")
 
-LEVEL_CN = {"critical": "危险", "warn": "注意"}
 LEVEL_RANK = {"critical": 0, "warn": 1, "ok": 2, "idle": 3}
 LOG_FILE = os.path.join(STATE_DIR, "notify.log")
 LOG_MAX = 200 * 1024

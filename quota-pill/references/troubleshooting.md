@@ -48,7 +48,15 @@
 期间日志不动，第二次就会显示「命中缓存」：
 
 ```bash
-python scripts/quota_report.py && python scripts/quota_report.py
+python "${CODEBUDDY_SKILL_DIR}/scripts/quota_report.py"; python "${CODEBUDDY_SKILL_DIR}/scripts/quota_report.py"
 ```
 
-真实能命中的场景是「日志不再增长时」：新开会话、先别提问，直接查。
+两条要连着执行，中间别提问——否则日志又被追加，签名照样会变。真正能命中的场景是
+日志停止增长的时候：新开会话、先别提问，直接查。
+
+## 8. 改了提醒阈值不生效
+
+- `--pct` / `--warn` 是写进**任务动作**的，不是运行时读配置。改了不重装，任务跑的还是旧参数。
+- 确认当前生效值：看 `notify.log` 每次检查那一行的末尾，那里会打印本次用的阈值
+  （例如「阈值 已用 80% / 1.0 小时内触限」）。`--status` 只报任务状态，不报参数。
+- 重装：`python "${CODEBUDDY_SKILL_DIR}/scripts/install_task.py" --every 10 --pct 70 --warn 2`。

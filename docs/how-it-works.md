@@ -91,7 +91,7 @@ python scripts/quota_report.py && python scripts/quota_report.py
 |---|---|---|
 | `skill-cache.json` | `quota_report.py` | 签名缓存，删掉只是下次重扫 |
 | `notify-state.json` | `notify.py` | 同一模型同一等级的 2 小时冷却 |
-| `runtime\` | `install_task.py` | 提醒脚本的运行副本 |
+| `runtime\` | `install_task.py` | 提醒脚本的运行副本：`notify.py`、`quota_watch.py`、`phrasing.py` 三个文件 |
 
 删掉整个目录不会损坏任何功能。
 
@@ -123,7 +123,8 @@ python scripts/quota_report.py && python scripts/quota_report.py
 
 它与报告底部那行「注意」（只认 `level=critical`）因此**互不包含**：85% 平缓的会通知、
 不进注意行；26% 撑不到重置的进注意行、却不单独通知。
-阈值都能改（`--pct` / `--warn`），但改了要重新注册任务才生效。
+阈值都能改（`--pct` / `--warn`），但它们不是运行时读配置，而是**写进任务动作的参数**——
+所以改完必须重跑一次安装，`--status` 也看不到当前值，要看 `notify.log` 每行末尾那对数字。
 
 ---
 

@@ -7,8 +7,9 @@
     PowerShell    → 备选，走 CIM 调 ScheduledTasks 模块，不受同一条黑名单影响
     manual        → 两者都不可用，打印命令交给用户手动执行
 
-    python install_task.py            # 安装（默认每 10 分钟）
+    python install_task.py            # 安装（默认每 10 分钟，阈值 80% / 1 小时）
     python install_task.py --every 5   # 改间隔
+    python install_task.py --pct 70 --warn 2    # 改提醒阈值，随任务动作一起落盘
     python install_task.py --status    # 查看
     python install_task.py --uninstall # 卸载
     python install_task.py --backend powershell   # 指定后端，跳过探测
@@ -27,7 +28,7 @@ NOTIFY = os.path.join(HERE, "notify.py")
 STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~"), "quota-pill")
 # 任务动作指向这份副本，而不是技能目录：技能被删、被移动、被重装都不影响已注册的任务。
 RUNTIME_DIR = os.path.join(STATE_DIR, "runtime")
-# 任务跑的是这里的副本，不是技能目录。notify.py 依赖这两个模块，漏一个就能
+# 任务跑的是这里的副本，不是技能目录。notify.py 依赖同目录另外两个模块，漏一个就
 # 直接 ImportError——而且任务失败是静默的，只有 --status 的 LastTaskResult 会变。
 STAGE_FILES = ("notify.py", "quota_watch.py", "phrasing.py")
 
@@ -94,6 +95,15 @@ def _q(text):
     return "'" + str(text).replace("'", "''") + "'"
 
 
+def _thresholds(pct, warn):
+    """写进任务动作的阈值参数。
+
+    不传也能跑（notify.py 有默认值），但显式落盘才可核对：同一个任务在哪台机器上
+    用的是什么阈值，看任务定义就能知道，不必翻代码。%g 让 80.0 写成 80。
+    """
+    return "--pct %g --warn %g" % (pct, warn)
+
+
 def backend(forced=None):
     if forced in ("schtasks", "powershell", "manual"):
         return forced
@@ -107,7 +117,7 @@ def backend(forced=None):
 
 # ---------------------------------------------------------------- 各后端实现
 
-def _install_ps(every, target):
+def _install_ps(every, target, extra):
     script = (
         "$ErrorActionPreference='Stop'\n"
         "try {\n"
@@ -121,14 +131,15 @@ def _install_ps(every, target):
         "-Settings $set -Force | Out-Null\n"
         "  'OK'\n"
         "} catch { 'ERR: ' + $_.Exception.Message }\n"
-    ) % (_q(python_for_task()), _q('"%s"' % target), _q(RUNTIME_DIR), every, _q(TASK_NAME))
+    ) % (_q(python_for_task()), _q('"%s" %s' % (target, extra)),
+         _q(RUNTIME_DIR), every, _q(TASK_NAME))
     rc, out, err = _ps(script)
     return rc == 0 and out.strip().startswith("OK"), (out or err).strip()
 
 
-def _install_schtasks(every, target):
+def _install_schtasks(every, target, extra):
     # /TR 的整串要再包一层引号，内部两个路径各自转义，否则 schtasks 只认第一个路径。
-    tr = '"\\"%s\\" \\"%s\\""' % (python_for_task(), target)
+    tr = '"\\"%s\\" \\"%s\\" %s"' % (python_for_task(), target, extra)
     r = run(["schtasks", "/Create", "/TN", TASK_NAME, "/TR", tr,
              "/SC", "MINUTE", "/MO", str(every), "/IT", "/F"])
     return r.returncode == 0, (r.stderr or r.stdout).strip()
@@ -160,14 +171,14 @@ def _uninstall_ps():
     return out.strip(), rc
 
 
-def _manual_commands(every, target):
+def _manual_commands(every, target, extra):
     lines = ["在命令提示符里手动执行（不需要管理员）：",
-             'schtasks /Create /TN "%s" /TR "\\"%s\\" \\"%s\\"" /SC MINUTE /MO %d /IT /F'
-             % (TASK_NAME, python_for_task(), target, every),
+             'schtasks /Create /TN "%s" /TR "\\"%s\\" \\"%s\\" %s" /SC MINUTE /MO %d /IT /F'
+             % (TASK_NAME, python_for_task(), target, extra, every),
              "",
              "或在 PowerShell 里执行：",
-             "$act = New-ScheduledTaskAction -Execute '%s' -Argument '\"%s\"' -WorkingDirectory '%s'"
-             % (python_for_task(), target, RUNTIME_DIR),
+             "$act = New-ScheduledTaskAction -Execute '%s' -Argument '%s' -WorkingDirectory '%s'"
+             % (python_for_task(), '"%s" %s' % (target, extra), RUNTIME_DIR),
              "$trg = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes %d)" % every,
              "Register-ScheduledTask -TaskName '%s' -Action $act -Trigger $trg -Force" % TASK_NAME]
     return lines
@@ -201,45 +212,48 @@ def status():
     return 0
 
 
-def install(every, forced=None, dry_run=False):
+def install(every, forced=None, dry_run=False, pct=80.0, warn=1.0):
     if not os.path.exists(NOTIFY):
         print("找不到提醒脚本:", NOTIFY)
         return 1
     be = backend(forced)
     target = os.path.join(RUNTIME_DIR, "notify.py")
+    extra = _thresholds(pct, warn)
 
     if dry_run:
         print("后端      : %s" % be)
         print("副本目录  : %s" % RUNTIME_DIR)
-        print("任务动作  : \"%s\" \"%s\"" % (python_for_task(), target))
+        print("任务动作  : \"%s\" \"%s\" %s" % (python_for_task(), target, extra))
         print("间隔      : %d 分钟" % every)
         print("\n将执行的命令：")
-        for line in _manual_commands(every, target):
+        for line in _manual_commands(every, target, extra):
             print(line)
         return 0
 
     if be == "manual":
         print("没有可用的调度后端（schtasks 起不来，PowerShell 也不可用）。")
-        for line in _manual_commands(every, target):
+        for line in _manual_commands(every, target, extra):
             print(line)
         return 1
 
     target = stage_runtime()
-    ok, detail = _install_ps(every, target) if be == "powershell" else _install_schtasks(every, target)
+    ok, detail = (_install_ps(every, target, extra) if be == "powershell"
+                  else _install_schtasks(every, target, extra))
     if not ok:
         print("安装失败（%s）：%s" % (be, detail))
         # schtasks 失败时自动再试一次 PowerShell —— 这是最常见的一种环境差异。
         if be == "schtasks" and backend() == "powershell":
             print("改用 PowerShell 重试…")
-            ok, detail = _install_ps(every, target)
+            ok, detail = _install_ps(every, target, extra)
             be = "powershell"
     if not ok:
         print("安装失败（%s）：%s" % (be, detail))
-        for line in _manual_commands(every, target):
+        for line in _manual_commands(every, target, extra):
             print(line)
         return 1
 
     print("已安装：每 %d 分钟检查一次，仅在当前用户登录时运行（后端 %s）" % (every, be))
+    print("提醒阈值：已用 ≥%g%% 或 %g 小时内触限" % (pct, warn))
     status()
     return 0
 
@@ -306,6 +320,8 @@ def uninstall():
 def main():
     ap = argparse.ArgumentParser(description="配额提醒计划任务")
     ap.add_argument("--every", type=int, default=10, help="检查间隔（分钟）")
+    ap.add_argument("--pct", type=float, default=80.0, help="已用百分比达到多少就提醒（默认 80）")
+    ap.add_argument("--warn", type=float, default=1.0, help="预计多少小时内触限就提醒（默认 1）")
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--uninstall", action="store_true")
     ap.add_argument("--dry-run", action="store_true", help="只打印将执行的命令，不注册任务")
@@ -316,7 +332,7 @@ def main():
         return status()
     if a.uninstall:
         return uninstall()
-    return install(a.every, a.backend, a.dry_run)
+    return install(a.every, a.backend, a.dry_run, a.pct, a.warn)
 
 
 if __name__ == "__main__":
