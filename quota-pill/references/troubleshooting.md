@@ -57,6 +57,9 @@ python "${CODEBUDDY_SKILL_DIR}/scripts/quota_report.py"; python "${CODEBUDDY_SKI
 ## 8. 改了提醒阈值不生效
 
 - `--pct` / `--warn` 是写进**任务动作**的，不是运行时读配置。改了不重装，任务跑的还是旧参数。
-- 确认当前生效值：看 `notify.log` 每次检查那一行的末尾，那里会打印本次用的阈值
-  （例如「阈值 已用 80% / 1.0 小时内触限」）。`--status` 只报任务状态，不报参数。
+- 确认当前生效值：`--status` 会打出**安装时的间隔与阈值**（来源是
+  `%LOCALAPPDATA%\quota-pill\install.json`），以及 `notify.log` 每次检查那一行的末尾
+  （例如「阈值 已用 80% / 1.0 小时内触限」）。
+  两者有区别：`--status` 是安装那一刻的快照，`notify.log` 是任务**实际**用过的值——
+  若有人手改过任务定义，以 `notify.log` 为准。
 - 重装：`python "${CODEBUDDY_SKILL_DIR}/scripts/install_task.py" --every 10 --pct 70 --warn 2`。

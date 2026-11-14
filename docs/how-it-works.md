@@ -130,7 +130,8 @@ python scripts/quota_report.py && python scripts/quota_report.py
 它与报告底部那行「注意」（只认 `level=critical`）因此**互不包含**：85% 平缓的会通知、
 不进注意行；26% 撑不到重置的进注意行、却不单独通知。
 阈值都能改（`--pct` / `--warn`），但它们不是运行时读配置，而是**写进任务动作的参数**——
-所以改完必须重跑一次安装，`--status` 也看不到当前值，要看 `notify.log` 每行末尾那对数字。
+所以改完必须重跑一次安装。`--status` 会打出安装时的阈值（读 `install.json`），
+任务实际用过的值看 `notify.log` 每行末尾那对数字。
 
 ---
 

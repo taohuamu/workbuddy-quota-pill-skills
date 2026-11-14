@@ -102,7 +102,8 @@ python quota-pill/scripts/install_task.py --uninstall
 ```
 
 阈值默认是「已用 ≥80% 或 1 小时内触限」。`--pct` / `--warn` 会写进任务动作，所以改完要重跑一次
-安装；`--status` 能看到的只有任务本身，阈值在任务定义的 Arguments 里。
+安装。`--status` 会打出**安装时的间隔与阈值**（存在 `%LOCALAPPDATA%\quota-pill\install.json`），
+它记的是安装那一刻；任务实际用过的值看 `notify.log` 每行末尾。
 
 **注册会自动选后端**：先试 `schtasks.exe`，它被安全策略拦死（进程起不来）时改用系统自带的
 ScheduledTasks 模块（经 powershell 调用），两者都不可用才把命令交给你手动执行。
