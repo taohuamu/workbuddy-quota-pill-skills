@@ -74,20 +74,22 @@ def save_state(state):
 
 # ---------------------------------------------------------------- 判定
 
-def pick_alerts(models, min_pct=80.0):
-    """要提醒的模型：已用达到 min_pct，或等级为 critical / warn。
+def pick_alerts(models, min_pct=80.0, max_eta=1.0):
+    """两个条件二选一：已用达到 min_pct，或预计 max_eta 小时内触限。
 
-    只看 level 不够。level 里混着两套口径：critical 既有「已到顶」，也有「按当前速度
-    撑不到重置」——后者可能才用了 20%；反过来，用了 85% 但增速平缓的会判成 ok。
-    提醒只关心两件事：快用完了，或者马上就要没了。
+    刻意不看 level。它混着另一套口径——「按当前速度撑不到重置」也算 critical，
+    那种可能才用了 26%、离触限还有四五个小时；「撑不到重置」是「迟早会」，不是
+    「马上要」。叫醒人只该用这两把尺子：快到顶了，或者快到点了。
     """
     hits = []
     for m in models:
         if m.get("stale"):
             continue
-        if m.get("level") in LEVEL_CN or (m.get("percent_used") or 0) >= min_pct:
+        pct = m.get("percent_used") or 0
+        eta = m.get("eta_hours_to_limit")
+        if pct >= min_pct or (eta is not None and eta <= max_eta):
             hits.append(m)
-    hits.sort(key=lambda m: (LEVEL_RANK[m["level"]], -m["percent_used"]))
+    hits.sort(key=lambda m: (LEVEL_RANK.get(m["level"], 9), -m["percent_used"]))
     return hits
 
 
@@ -232,7 +234,7 @@ def main():
         return 0
 
     state = load_state()
-    hits = pick_alerts(models, args.pct)
+    hits = pick_alerts(models, args.pct, args.warn)
     todo = filter_cooldown(hits, state, args.cooldown, args.force)
 
     stamp = dt.datetime.now().strftime("%H:%M:%S")
