@@ -136,8 +136,12 @@ def render(rep, cached, cost):
             "（另有 %d 个停在上一周期，未计入）" % stale if stale else "",
             cost, "命中缓存" if cached else "重新扫描", qw.HOME),
     ]
+    # 三路并集：达提醒线、已触限、以及「证据够且按此速度撑不到重置」。
+    # 第三路是补的——曾有模型用掉 41%、按当前速度 1.8 小时后到上限，表里写着这个数，
+    # 注意行却不吭声，因为它的等级只是「注意」。
     risk = [m for m in models
-            if forecast.should_notify(m) or m.get("level") == "critical"]
+            if forecast.should_notify(m) or m.get("level") == "critical"
+            or forecast.pace_exhausts(m.get("forecast"), m.get("hours_to_reset"))]
     if risk:
         tail.append("")
         tail.append("**注意**：%s。" % "；".join(phrasing.line(m) for m in risk))

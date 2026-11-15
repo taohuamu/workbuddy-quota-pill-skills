@@ -125,6 +125,36 @@ def main():
           fc.eta_cell(d_soon))
     check("soon 不触发提醒", d_soon["alert"] is False)
 
+    # 按速度升级：证据够（k≥4）且撑不到重置 → 至少「注意」
+    def fake_fc(tier, eta, k=6):
+        return {"tier": tier, "eta_min": eta, "k": k, "capped": False,
+                "window_min": 15.0, "alert": False, "p": None, "need": 20.0, "why": ""}
+
+    check("38% 但两小时后到上限 → 注意",
+          fc.level_of(38, fake_fc("ok", 120), 22.4) == "warn",
+          fc.level_of(38, fake_fc("ok", 120), 22.4))
+    check("样本少（tier=few）不升级",
+          fc.level_of(38, fake_fc("few", 120, k=2), 22.4) == "ok")
+    check("撑得到重置不升级",
+          fc.level_of(38, fake_fc("ok", 25 * 60), 22.4) == "ok")
+    check("距重置不足一个窗口不升级",
+          fc.level_of(38, fake_fc("soon", None), 0.2) == "ok")
+    check("用量带仍然优先", fc.level_of(95, fake_fc("ok", 5), 22.4) == "critical")
+    check("没有 forecast 时退回用量带", fc.level_of(85) == "warn")
+
+    # 页脚文案：谁撑不到重置
+    mk = lambda name, tier, eta, h2r: {"model": name, "hours_to_reset": h2r,
+                                       "forecast": fake_fc(tier, eta)}
+    strong_txt = fc.exhaust_text([mk("m1", "ok", 120, 22.4), mk("m2", "few", 600, 22.4)])
+    check("页脚点名有证据的那个", "m1" in strong_txt and "早于重置" in strong_txt, strong_txt)
+    check("样本少的只作补充说明，不进主句",
+          "样本少，未计入" in strong_txt and strong_txt.index("m2") > strong_txt.index("早于重置"),
+          strong_txt)
+    weak_txt = fc.exhaust_text([mk("m2", "few", 600, 22.4)])
+    check("只有样本少时说「仅供参考」", "仅供参考" in (weak_txt or ""), weak_txt)
+    check("都撑得到重置时页脚沉默",
+          fc.exhaust_text([mk("m3", "ok", 25 * 60, 22.4)]) is None)
+
     # 接线：forecast.py 必须进 runtime 副本清单
     import install_task
     check("STAGE_FILES 含 forecast.py", "forecast.py" in install_task.STAGE_FILES,
