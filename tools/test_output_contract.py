@@ -104,6 +104,123 @@ def main():
     s = run(os.path.join(SKILL, "scripts", "sync_check.py"))
     check("内置 quota_watch 与主项目同源", s.returncode == 0, s.stdout.strip()[:80])
 
+    # 8. 只读一次盘：报告与预测共用同一份快照（R6 的 B1）
+    sys.path.insert(0, os.path.join(SKILL, "scripts"))
+    import quota_report as qr
+    real = qr.qw.load_snapshots
+    calls = {"n": 0}
+
+    def counting():
+        calls["n"] += 1
+        return real()
+
+    qr.qw.load_snapshots = counting
+    try:
+        qr.load_report(use_cache=False)
+    finally:
+        qr.qw.load_snapshots = real
+    check("load_report 只读一次快照", calls["n"] == 1, "调用 %d 次" % calls["n"])
+
+    # 8b. notify 侧同理（源码级：`load_snapshots` 只允许出现一次调用点）
+    with open(os.path.join(SKILL, "scripts", "notify.py"), encoding="utf-8") as f:
+        nsrc = f.read()
+    check("notify 只有一个取快照调用点", nsrc.count("load_snapshots()") == 1,
+          "出现 %d 次" % nsrc.count("load_snapshots()"))
+
+    # 9. 高用量夹具：注意行出现，且两种模式的退出码一致（R7 的 B5）
+    import datetime as _dt
+    with tempfile.TemporaryDirectory() as hi:
+        proj = os.path.join(hi, "projects", "case")
+        os.makedirs(proj)
+        now = time.time()
+        with open(os.path.join(proj, "s.jsonl"), "w", encoding="utf-8") as f:
+            for i in range(6):
+                f.write(json.dumps({
+                    "timestamp": now - (5 - i) * 60,
+                    "providerData": {"model": "test-hi", "rawUsage": {
+                        "quota": {"model": "test-hi", "percent": 90 + i,
+                                  "reset_at": str(int(now + 6 * 3600))},
+                        "credit": 1.0, "tokens": 1000}}}, ensure_ascii=False) + "\n")
+        env = {"WORKBUDDY_HOME": hi}
+        hi_text = run(REPORT, "--no-cache", env=env)
+        hi_json = run(REPORT, "--json", "--no-cache", env=env)
+        check("高用量时文本退出码为 1", hi_text.returncode == 1, hi_text.returncode)
+        check("高用量时 JSON 退出码同为 1", hi_json.returncode == 1, hi_json.returncode)
+        check("高用量出现注意行", "**注意**" in hi_text.stdout, hi_text.stdout[-80:])
+        check("高用量按此速度给出分钟数", "分钟后到上限" in hi_text.stdout, hi_text.stdout[-80:])
+
+    # 10. README 声称的列数与实际表头一致（R7 的 B4）
+    with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
+        rd = f.read()
+    import re as _re
+    said = _re.search(r"应出现 (\d) 列表格", rd)
+    actual = len([c for c in header.strip().strip("|").split("|")])
+    check("README 列数与表头一致",
+          said is not None and int(said.group(1)) == actual,
+          "README %s / 实际 %d" % (said.group(1) if said else "未写", actual))
+
+    # 11. 帮助文本不再用内部单位「格」（R7 的 B6）
+    nh = run(os.path.join(SKILL, "scripts", "notify.py"), "--help")
+    check("notify --help 不用「格」", "格" not in nh.stdout, nh.stdout[-80:])
+    check("notify --help 默认 2 小时", "默认 2" in nh.stdout, nh.stdout[-80:])
+
+    # 12. SKILL.md 写的默认阈值必须与代码一致（R6 的 B3：曾写 1 小时，实际 2）
+    with open(os.path.join(SKILL, "SKILL.md"), encoding="utf-8") as f:
+        sk = f.read()
+    m = _re.search(r"阈值默认 (\d+)% / (\d+) 小时", sk)
+    pct_ok = m and m.group(1) == "80"
+    warn_ok = m and ("默认 %s" % m.group(2)) in nh.stdout
+    check("SKILL.md 默认百分比 80%", bool(pct_ok), m.group(0) if m else "未写")
+    check("SKILL.md 默认时限与 --help 一致", bool(warn_ok),
+          (m.group(0) if m else "未写") + " / help=" + nh.stdout[-60:])
+
+    # 13. README 结构树必须与磁盘一致（R9 的 B11：0.5.0 加了 forecast.py 没补树）
+    with open(os.path.join(ROOT, "README.md"), encoding="utf-8") as f:
+        tree_block = f.read().split("```")[1]
+    in_tree = set(_re.findall(r"[├└]──\s+([\w.\-]+\.py)", tree_block))
+    on_disk = set()
+    for d in (os.path.join(SKILL, "scripts"), os.path.join(ROOT, "tools")):
+        for name in os.listdir(d):
+            if name.endswith(".py"):
+                on_disk.add(name)
+    missing = sorted(on_disk - in_tree)
+    extra = sorted(in_tree - on_disk)
+    check("README 结构树含全部脚本", not missing, "缺 %s" % missing)
+    check("README 结构树没有多余条目", not extra, "多 %s" % extra)
+    check("README 结构树不写死测试项数",
+          not _re.search(r"测试（\d+\s*项）", tree_block),
+          "仍有「（N 项）」这类会漂移的数字")
+
+    # 14. 坏行不能废掉整份报告（R10 边界用例）
+    bad = tempfile.mkdtemp()
+    try:
+        proj = os.path.join(bad, "projects", "x")
+        os.makedirs(proj)
+        now = time.time()
+        lines = [
+            json.dumps({"timestamp": now, "providerData": {"model": "m1", "rawUsage": {
+                "quota": {"model": "m1", "percent": "7%",
+                          "reset_at": str(int(now + 7200))}}}}, ensure_ascii=False),
+            "{ this is not json",
+            "[]",
+            json.dumps({"timestamp": None, "providerData": {"model": "m2", "rawUsage": {
+                "quota": {"model": "m2", "percent": 3, "reset_at": "abc"}}}},
+                ensure_ascii=False),
+            json.dumps({"timestamp": now, "providerData": {"model": "m1", "rawUsage": {
+                "quota": {"model": "m1", "percent": None,
+                          "reset_at": str(int(now + 7200))}}}}, ensure_ascii=False),
+        ]
+        with open(os.path.join(proj, "s.jsonl"), "w", encoding="utf-8") as f:
+            f.write("\n".join(lines) + "\n")
+        rb = run(REPORT, "--no-cache", env={"WORKBUDDY_HOME": bad})
+        out = rb.stdout + rb.stderr
+        check("坏行不抛栈", "Traceback" not in out, out.splitlines()[:1])
+        check("坏行之后仍能出表", "| `m1` |" in rb.stdout, out[-80:])
+        check("带百分号的字符串也能解析", "| 7% |" in rb.stdout, out[-80:])
+    finally:
+        import shutil
+        shutil.rmtree(bad, ignore_errors=True)
+
     return finish()
 
 

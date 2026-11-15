@@ -2,7 +2,7 @@
 name: quota-pill
 description: 查询 WorkBuddy 各模型本周期（24 小时滚动窗口）的配额已用百分比、重置时刻、消耗增速与触限预测，也可开启阈值提醒（接近耗尽时弹系统通知）。当用户问额度、配额、限额还剩多少，问什么时候重置、还能撑多久、为什么数字不动、哪个模型快用完了，要一份用量摘要，或要求「快用完时提醒我」「开个额度提醒」时使用。只读本地会话日志，不联网、不登录、不改文件。
 agent_created: true
-version: 0.5.0
+version: 0.5.2
 license: MIT, see LICENSE.txt
 display_name: "配额胶囊"
 display_name_en: "Quota Pill"
@@ -46,7 +46,7 @@ allowed-tools: Bash(python:*) Read
 就顺手装上——它会在系统里留一个计划任务。
 
 1. 注册：`python "${CODEBUDDY_SKILL_DIR}/scripts/install_task.py" --every 10`，成功即完成。
-   阈值默认 80% / 1 小时，要改就加 `--pct 70 --warn 2`——它们会写进任务动作，
+   阈值默认 80% / 2 小时，要改就加 `--pct 70 --warn 3`——它们会写进任务动作，
    **改完必须重跑安装**才生效。`--dry-run` 只打印命令；`--status` 查看；`--uninstall` 关闭。
 2. 脚本自己选后端（`schtasks.exe` → PowerShell ScheduledTasks 模块 → 人工）。**只有**它打印
    「没有可用的调度后端」时才把命令交给用户，且**不要尝试绕过**（改注册表、换 shell、写启动项
@@ -74,7 +74,7 @@ allowed-tools: Bash(python:*) Read
 - 「近 15 分钟」这一列是观测事实（涨了几个百分点），「按此速度」是换算值。前者可以断言，
   后者只在「没停手」的前提下成立，两者不要混着说。
 - 某个模型这一列长期是「—」且数据新鲜度很大，多半是该模型服务端很少下发 `quota`
-  （如 `hy4`，实测覆盖率约 8%）。照实说是「数据稀疏，看不出速度」，不要编一个数。
+  （如 `hy4`，覆盖率不到一成）。照实说是「数据稀疏，看不出速度」，不要编一个数。
 
 ## 关键陷阱
 

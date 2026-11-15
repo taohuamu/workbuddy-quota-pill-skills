@@ -13,12 +13,13 @@ workbuddy-quota-pill-skills/
 │   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒
 │   ├── scripts/
 │   │   ├── quota_watch.py       # 数据层，与主项目逐字节同源
+│   │   ├── forecast.py          # 预测层：数涨幅 → χ² 判定 → Beta 分位给时间（同样同源）
 │   │   ├── quota_report.py      # 输出层：Markdown 表格 + 签名缓存
 │   │   ├── notify.py            # 阈值提醒：命中时发系统通知
 │   │   ├── phrasing.py          # 一句话文案，报告与通知共用同一句
 │   │   ├── install_task.py      # 注册/注销提醒用的计划任务（自动选后端）
 │   │   ├── probe_scheduler.py   # 探测 schtasks / 定时任务模块是否可用
-│   │   └── sync_check.py        # 校验副本是否与主项目脱节
+│   │   └── sync_check.py        # 校验 data/forecast 两个副本与 references 日期
 │   └── references/
 │       ├── data-source.md       # 字段含义、覆盖率、模型清单（易变）
 │       ├── troubleshooting.md   # 排查顺序
@@ -27,9 +28,11 @@ workbuddy-quota-pill-skills/
 │   └── icon-512.png             # 市场图标（另出 256 / 128 供列表缩略）
 ├── tools/
 │   ├── install.py               # 装/卸到技能目录（默认建目录联接）
+│   ├── make_icon.py             # 生成三档尺寸的市场图标
 │   ├── package.py               # 打 zip 分发物（含试装说明与哈希清单）
 │   ├── validate_skill.py        # frontmatter 与结构校验
-│   ├── test_output_contract.py  # 输出层契约测试（19 项）
+│   ├── test_output_contract.py  # 输出层契约测试（含退出码、列数、文档一致性）
+│   ├── test_forecast.py         # 预测层行为测试（观测/判定/读数/文案）
 │   └── route_test.md            # 真路由测试清单（需新会话手工执行）
 └── docs/
     └── how-it-works.md          # 运行逻辑：链路、判定、缓存、失效模式
@@ -46,7 +49,7 @@ python tools/install.py --status
 python tools/install.py --uninstall
 ```
 
-安装后**新开一个会话**，问「现在还剩多少额度」，应出现 7 列表格。当前会话的技能清单在启动时已加载，装了也不会立刻生效。
+安装后**新开一个会话**，问「现在还剩多少额度」，应出现 6 列表格（模型 / 已用 / 本周期重置 / 近 15 分钟 / 按此速度 / 数据新鲜度）。当前会话的技能清单在启动时已加载，装了也不会立刻生效。
 
 ## 发给别人试
 

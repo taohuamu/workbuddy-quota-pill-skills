@@ -1,99 +1,114 @@
-# 迭代状态（第二轮）
+# 迭代状态（第四周期 · 技能版 · 已结束）
 
-轮次：5 / 5（**已结束**）
+轮次：10 / 10（技能版 R6–R10，**已结束**）
 技能路径：`D:\AI_work\WorkBuddy_work\2026-11-05-22-37-57\workbuddy-quota-pill-skills\quota-pill`
-基线备份路径：`_iteration/backup_baseline_20261114_2103`（11 文件 / 100 KB）
-基线 SKILL.md 哈希：`4ca6f0c51545777820be24e35dee918ef5b56461932492bbf8f674147b7d7b80`
-结束版本：0.4.4
-上一轮记录：`_iteration/round1/`（R1–R5 + 迭代后 C6–C9）
+基线备份路径：`_iteration/backup_baseline_20261115_1946`（12 文件 / 156 KB）
+基线 SKILL.md 哈希：`1c39881a092b4047`
+起始版本：0.5.0 → 结束版本 **0.5.1**
+上一周期记录：`_iteration/iteration_state_cycle3_0.4.5.md` + `迭代报告_R1..R5.md`（收敛于 0.4.4）
+本轮报告：`迭代报告_R6..R10.md`；总结见 `总结报告_R6-R10.md`
+桌面版迭代：`workbuddy-quota-pill/_iteration/iteration_state.md`（D1–D5）
 
 ## 已修 Bug 清单
 
-- [B1] P1　README 结构树补 `phrasing.py`；去掉会持续漂移的「73 行」。
-- [B2] P1　`install_task.py` 支持 `--pct` / `--warn` 并写进任务动作；三条命令构造同步；
-  实测 `Arguments` 与 `notify.log` 均显示自定义阈值。
-- [B3] P2　删无用常量 `LEVEL_CN`（`LEVEL_RANK` 保留）。
-- [B4] P3　注释「这两个模块」改为「同目录另外两个模块」。
-- [B5] P1　SKILL.md 与 README 补「怎么改阈值」，含「改完必须重跑安装」。
-- [B6] P2　README 副本说明补齐三个文件名。
-- [B7] P2　`troubleshooting.md` 的相对路径命令改 `${CODEBUDDY_SKILL_DIR}`，与
-  `data-source.md` 一致；照做不再报 `can't open file`。
-- [B8] P2　`troubleshooting.md` 新增第 8 节「改了提醒阈值不生效」。
-- [B9] P3　`scheduling.md` 补 `--pct` / `--warn` 的完整命令。
-- [B10] P2　`how-it-works.md` 补 runtime 三个文件名与「阈值写进任务动作」的机制。
-- [B11] P2　`SKILL.md` 不再逐字引用已不存在的「存在触限风险」，改为描述末行结构。
-- [B12] P3　同上，「取数耗时」的说法与实际输出「取数 0.86 秒」对齐。
+- [B1] P1　技能版取数读两遍日志，1.96 s → 1.0 s（`quota_report` 改传 `loaded=`）。
+- [B2] P1　`notify.py` 同样读两遍，约 2.2 s → 1.25 s。
+- [B3] P2　`SKILL.md` 提醒默认写成「1 小时」，实际 `--warn` 默认 2。
+- [B4] P2　`README` 说「7 列表格」，实际 6 列。
+- [B5] P2　`--json` 恒返回 0，与「退出码 1 = 有风险」冲突；现两种模式一致。
+- [B6] P3　`notify --window` help 仍用内部单位「格」。
+- [B7] P3　`pick_alerts` docstring 按 0.4.x 描述 critical。
+- [B8] P2　`data-source.md` 不讲「近 15 分钟 / 按此速度」两列，SKILL.md 又把解释字段的活指向它。
+- [B9] P2　`troubleshooting.md` 缺「按此速度是 —」一节（`—` 有三种成因）。
+- [B10] P3　`data-source.md` 内容改了日期没改（被 `sync_check` 自检拦下），顺带重算覆盖率。
+- [B11] P2　README 结构树缺 `forecast.py` / `make_icon.py` / `test_forecast.py`（同类问题第三次复发）。
+- [B12] P2　README 写「契约测试（19 项）」，实际 36（本轮后 42）——会漂移的硬编码。
+- [B13] P3　SKILL.md 覆盖率「约 8%」与 `data-source.md` 的「约 10%」不一致。
 
 ## 待修 Bug 清单
 
-无。
+无（P0/P1/P2 全清）。
 
 ## 观察项与不做事项
 
-- **观察**：`phrasing.VERDICT_TEXT["重置前就会耗尽"]` 实际不可达（该 verdict 只在 `eta`
-  非空时产生，必然走 `_within()`）。保留作防御，不删。
-- **不做**：`--status` 显示任务当前阈值——需解析 Arguments 字符串；R1 改为安装时直接打印，
-  且 `notify.log` 每行末尾都带，够用。
-- **不做**：为凑轮次改写措辞。R5 台账为空即判定收敛。
+- **观察**：`quota_watch.py` 的 CLI（旧口径）对同一数据给出 `critical / 重置前就会耗尽`，
+  与展示层 `ok / 约 9.8 小时后到上限` 不一致。与桌面版逐字节同源，文档已注明「仅供调试」，
+  **不做**。
+- **观察**：`phrasing.py` 的 `VERDICT_TEXT` 兜底分支已经不可达（两处调用方都先过
+  `forecast.attach`）。删掉会降低防御，**保留**。
+- **观察**：`SKILL.md` 的 `description` 仍含「消耗增速」字样。它决定触发，0.4.5 实测
+  5/5 正例、0/4 反例，改措辞需重新做真会话验证，**本轮不动**，记入后续。
+- **不做**：`forecast.py` 内部注释用「格」作为实现单位——代码内术语，对外已改口径。
 
 ## 回归用例集
 
 | 编号 | 预期 | 执行方式 | 当前 |
 |---|---|---|---|
 | T1 | 结构校验 PASS | `tools/validate_skill.py` | 通过 |
-| T2 | 输出层契约 19/19 | `tools/test_output_contract.py` | 通过 |
-| T3 | 同源 + references 日期 | `quota-pill/scripts/sync_check.py` | 通过 |
-| T4 | 7 列表 | `quota_report.py --no-cache` | 通过 |
-| T5 | `--json` 可解析 | 同上加 `--json` | 通过 |
-| T6 | 空目录降级 | `WORKBUDDY_HOME=<空目录>` | 通过 |
-| T7 | 版本单源且为 0.4.4 | `grep -c metadata`=0；`package.version()` | 通过 |
-| T8 | YAML 可解析 | PyYAML（需 3.14 解释器） | 通过 |
-| T9 | references 均存在 | `validate_skill.py` | 通过 |
-| T17 | README 结构树与 scripts/ 一致 | 提取树内 .py 与 glob 比对 | 通过 |
-| T18 | 阈值出现在任务动作里 | `--dry-run` + 真注册后读 `Arguments` | 通过 |
-| T19 | 无未使用的大写常量 | 逐文件正则统计 | 通过 |
-| T20 | 文档里给出的命令可直接执行 | 抽查 `--pct/--warn` 那条 | 通过 |
-| T21 | `troubleshooting` 的缓存验证命令可跑 | 同一命令连跑两次 | 通过（0.86s → 0.03s） |
-| T22 | 文档声称会出现的输出串确实出现 | 实际输出 grep | 通过 |
-| T10–T14 | 触发层 5 正例 / 4 反例 | 真会话 | 通过（R5 抽检 1/1、1/1，叠加历史 5/5、0/4） |
+| T2 | 输出层契约 42/42 | `tools/test_output_contract.py` | 通过 |
+| T3 | 预测层 31/31 | `tools/test_forecast.py` | 通过 |
+| T4 | 两文件同源 + references 日期 | `scripts/sync_check.py` | 通过 |
+| T5 | 表格 6 列（7 竖线） | `quota_report.py --no-cache` | 通过 |
+| T6 | `--json` 可解析且含 forecast | 同上加 `--json` | 通过 |
+| T7 | 空目录降级不报错 | `WORKBUDDY_HOME=<空目录>` | 通过 |
+| T8 | 同命令内二次调用命中缓存 | 同一条命令连跑 | 通过 |
+| T9 | 取数耗时 < 1.5 s | 末行「取数 X 秒」 | 通过（0.90–1.09 s） |
+| T10 | `notify --dry-run` 正常 | 直接跑 | 通过 |
+| T11 | `install --dry-run` 动作含三个阈值 | 直接跑 | 通过 |
+| T12 | 市场包哈希自校 | `tools/package.py --market` | 通过 |
+| T13 | 文档默认值与代码一致 | 契约测试 T20 | 通过 |
+| T14 | 触发层 5 正例 / 4 反例 | 真会话 | 未复测，沿用 0.4.5 |
+| T15 | `load_report` 只读一次快照 | 计数打桩 | 通过 |
+| T16 | `notify` 只有一处取快照调用 | 源码计数 | 通过 |
+| T17 | 高用量时文本/JSON 退出码同为 1 | 95% 夹具 | 通过 |
+| T18 | README 列数 == 表头列数 | 正则比对 | 通过 |
+| T19 | `notify --help` 无「格」 | 直接跑 | 通过 |
+| T20 | SKILL.md 默认阈值与 `--help` 一致 | 正则比对 | 通过 |
+| T21 | README 结构树与磁盘双向一致 | 集合比对 | 通过 |
+| T22 | 结构树不写死测试项数 | 正则 | 通过 |
+| T23 | 坏行不废掉整份报告 | 夹具日志 | 通过 |
 
 ## 上轮改动结果
 
-- [C1] README 结构树补文件、去行数 → 保留
-- [C2] 删 `LEVEL_CN` → 保留
-- [C3] `install_task` 阈值参数 → 保留（端到端实测）
-- [C4] SKILL.md 补阈值用法 → 保留
-- [C5] README 补命令示例与说明 → 保留
-- [C6] README 副本三文件 → 保留
-- [C7] troubleshooting 绝对路径 → 保留
-- [C8] troubleshooting 第 8 节 → 保留
-- [C9] scheduling 补命令 → 保留
-- [C10] how-it-works 机制补全 → 保留
-- [C11] SKILL.md 第 2 条改描述、去逐字引用 → 保留
+- [C1] 保留　`load_report` 复用快照（B1）
+- [C2] 保留　`notify` 复用快照（B2）
+- [C3] 保留　SKILL.md 默认 2 小时（B3）
+- [C4] 保留　README 6 列（B4）
+- [C5] 保留　JSON 退出码与文本一致（B5）
+- [C6] 保留　`notify --window` help（B6）
+- [C7] 保留　`pick_alerts` docstring（B7）
+- [C8] 保留　`data-source.md` 列说明 + 日期 + 覆盖率分母（B8/B10）
+- [C9] 保留　`troubleshooting.md` 第 9、10 节（B9）
+- [C10] 保留　README 结构树补齐（B11）
+- [C11] 保留　README 去掉硬编码项数（B12）
+- [C12] 保留　SKILL.md 覆盖率改区间表述（B13）
+- [C13] 保留　坏行边界用例（T23）
 
 ## 连续无实质改进轮数
 
-1（R5 无改动；因达到最大轮次 5 而终止，未累计到 2）
+1（R10 只补用例，未修 Bug；因达到轮次上限与「待修清空」双重条件，判定结束）
 
 ## 收敛判定
 
-**迭代结束**（达到最大轮次）。详见 `_iteration/总结报告.md`。
+**迭代结束**。R6–R10 五轮，B1–B13 全修，T1–T23 全通过（T14 未复测已注明）。
+版本 0.5.0 → 0.5.1，市场包 13 文件 49 KB。
 
 ## 中断标记
 
 无
 
-## 迭代后补记（v0.4.5，2026-11-14 晚）
+---
 
-上一节的「观察项与不做事项」有两处已被推翻，改在这里，避免下一轮从错误前提继续：
+## 收敛后回流（2026-11-15 晚，桌面版 D2/D4 阶段发现）
 
-- **「不做：`--status` 显示当前阈值」已做**。方案不是解析任务 Arguments（两条后端格式
-  不同），而是安装成功时写 `%LOCALAPPDATA%\quota-pill\install.json`，`--status` 回读并
-  打印「安装参数」。措辞是「安装时」并注明手改任务时以任务为准。卸载时删除，dry-run 不写。
-- **不可达键的注释已修正**。键仍保留，但注释原写「兜底：算不出时间时才落到这句」，
-  方向说反了（那句正是它不可能出现的情况）。现改为写明「当前不可达」及保留理由。
-- **T10–T14 已补真·新会话验证**：正例 5/5、反例 0/4，见 `_iteration/真路由验证_0.4.5.md`。
-  上一节「通过（R5 抽检 1/1、1/1…）」是子代理结果，条件不严，以后者为准。
-- 顺带修了三处「`--status` 不显示阈值」的残留描述（`troubleshooting.md`、`README.md`、
-  `how-it-works.md`）——0.4.5 改了代码只补了部分文档，剩下的被下游会话如实引用进报告。
+技能版判定「迭代结束」后，桌面版迭代暴露了两个**共用文件** `forecast.py` 的缺陷，
+按「同源」约束必须两边一起改：
 
+- `decide()` 的返回值不含 `window_min`，导致展示层（卡片、`--print`、技能版表格）只能按
+  默认 15 分钟说话；`--window N` 时读数与文案自相矛盾。（桌面 [B4]）
+- `phrase()` 用 `or` 取窗口，`window_min=0` 被当假值；负窗口直接进文案。
+  `decide()` 入口未夹取，0 还会让速率除零。（桌面 [B7]）
+
+处理：`forecast.py` 两处修正 → 桌面 173/173、技能 42/42 + 37/37 复跑通过（`取数 1.01 s`）。
+版本 0.5.1 → **0.5.2**，市场包重打（13 文件 50 KB）。哈希 `forecast.py b10041bd7c4c1723`。
+详细记录见 `workbuddy-quota-pill/_iteration/迭代报告_D2.md` 与 `迭代报告_D4.md`。

@@ -77,11 +77,10 @@ def pick_alerts(models, min_pct=80.0):
     """触发与内容分开，返回要写的模型列表；空列表表示不该弹。
 
     触发 —— 任一模型已用达 min_pct，或 forecast 判定「值得提前提醒」（见 forecast.py：
-    15 分钟净增格数的 χ² 下界 ≥ (100-p)/时限，且 p 已过地板）。两者都够「值得叫醒你」。
-    内容 —— 触发者 ∪ 所有 level=critical 的模型。取并集是因为 critical 里有一批
-    「才用了 26%、但按当前速度撑不到重置」的，它们不构成叫醒的理由（离触限还有小半天），
-    可是既然叫醒了，就该一并告诉你。反过来，到了 80% 却撑得住的也要写进去，
-    否则「80% 就提醒」这个承诺等于没兑现。
+    15 分钟涨幅的 χ² 下界 ≥ (100-p)/时限，且 p 已过地板）。两者都够「值得叫醒你」。
+    内容 —— 触发者 ∪ 所有 level=critical 的模型。临界等级现在只由「已用 ≥95%」产生，
+    它本身必然触发，所以这一项在 0.5.0 之后是冗余的；保留是因为它把「内容」与「触发」
+    的规则写清楚，将来若放宽触发条件（例如只按速度触发），这一句仍然成立。
     """
     live = [m for m in models if not m.get("stale")]
 
@@ -226,7 +225,8 @@ def balloon(title, body, hold_sec=8.0):
 
 def main():
     ap = argparse.ArgumentParser(description="配额阈值提醒")
-    ap.add_argument("--window", type=int, default=15, help="观测窗口（分钟），数窗口内涨了几格")
+    ap.add_argument("--window", type=int, default=15,
+                    help="观测窗口（分钟），数窗口内涨了几个百分点")
     ap.add_argument("--warn", type=float, default=2.0,
                     help="多少小时内会到上限就提前提醒（默认 2）")
     ap.add_argument("--pct", type=float, default=80.0, help="已用百分比达到多少就提醒")
@@ -236,16 +236,17 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="只打印，不弹窗")
     ap.add_argument("--force", action="store_true", help="忽略冷却")
     args = ap.parse_args()
+    args.window = max(1, int(args.window or 15))   # 0 / 负数会让窗口计数失去意义
 
-    report = qw.build_report(args.window, args.warn)
+    # 一次读盘：报告与预测共用同一份快照。分两次读要多付一遍全量扫（约 0.9 秒），
+    # 而这个脚本每 10 分钟被计划任务拉起一次。
+    snaps, n_files, n_rec = qw.load_snapshots()
+    report = qw.build_report(args.window, args.warn, loaded=(snaps, n_files, n_rec))
     models = report.get("models") or []
     if not models:
         log(report.get("error") or "没有可用的配额快照")
         return 0
 
-    # 预测要的是「窗口内涨了几格」，得看原始快照。build_report 里没有这个量，
-    # 所以这里再读一次（两次全量扫，约 1.5 秒；任务每 10 分钟跑一次，可以接受）。
-    snaps, _, _ = qw.load_snapshots()
     attach_forecast(models, snaps, args.window, args.warn, args.floor, args.pct)
 
     state = load_state()

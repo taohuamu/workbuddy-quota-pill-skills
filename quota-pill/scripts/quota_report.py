@@ -80,10 +80,12 @@ def load_report(use_cache=True):
         except (OSError, ValueError, KeyError):
             pass
 
-    rep = qw.build_report(WINDOW_MIN, forecast.HORIZON_H)
-    # 预测要「窗口内涨了几格」，build_report 里没有这个量，得再读一次原始快照。
-    # 只在缓存未命中时发生，等于每次重扫多付一遍全量读（约 0.9 秒）。
-    snaps, _, _ = qw.load_snapshots()
+    # 一次读盘，报告与预测共用：build_report 支持传入已读好的快照。
+    # 分成两次读等于每次重扫多付一遍全量扫——实测 1.96 秒 vs 0.95 秒，
+    # 而这个数字会原样打在表格末行给用户看。
+    snaps, n_files, n_rec = qw.load_snapshots()
+    rep = qw.build_report(WINDOW_MIN, forecast.HORIZON_H,
+                          loaded=(snaps, n_files, n_rec))
     attach(rep.get("models") or [], snaps)
     rep["has_risk"] = any(m.get("level") == "critical"
                           for m in rep.get("models") or [] if not m.get("stale"))
@@ -152,7 +154,9 @@ def main():
     if args.json:
         print(json.dumps({"cached": cached, "cost_s": round(cost, 3), "report": rep},
                          ensure_ascii=False, indent=2))
-        return 0
+        # 与文本模式同一个退出码含义：1 = 有模型处于触限等级，不是执行失败。
+        # 原先这里恒返回 0，文档却写「退出码 1 表示有风险」，两种模式对不上。
+        return 1 if rep.get("has_risk") else 0
     print(render(rep, cached, cost))
     return 1 if rep.get("has_risk") else 0
 

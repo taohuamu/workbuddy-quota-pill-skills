@@ -66,6 +66,21 @@ def main():
     check("k=0 不给时间", r0["eta_min"] is None)
     check("k=0 文案是事实", fc.phrase(r0) == "近 15 分钟无新增", fc.phrase(r0))
 
+    # 文案里的窗口必须跟着 --window 走（D2 的 B4：改 45 分钟仍说 15 分钟）
+    s45 = [(0.0, 50.0), (60.0, 50.0)]
+    d45 = fc.decide(s45, now=120.0, window_min=45)
+    check("decide 把窗口带进结果", d45.get("window_min") == 45.0, d45.get("window_min"))
+    check("窗口 45 时文案说 45 分钟", fc.phrase(d45) == "近 45 分钟无新增", fc.phrase(d45))
+    check("不传参也能拿到正确窗口", fc.phrase(fc.decide(s45, now=120.0, window_min=45))
+          == "近 45 分钟无新增")
+
+    # 越界窗口：0 / 负数夹到 1，且文案不能出现「近 0 分钟」「近 -5 分钟」
+    d0 = fc.decide(s45, now=120.0, window_min=0)
+    check("窗口 0 夹到 1", d0["window_min"] == 1.0, d0.get("window_min"))
+    check("窗口 0 的文案不出现 0 分钟", "近 1 分钟无新增" == fc.phrase(d0), fc.phrase(d0))
+    dn = fc.decide(s45, now=120.0, window_min=-5)
+    check("负窗口也夹到 1", dn["window_min"] == 1.0, dn.get("window_min"))
+
     # 读数：中位时间随 k 单调下降
     meds = []
     for k in (1, 3, 6, 12):
