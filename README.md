@@ -1,6 +1,6 @@
 # workbuddy-quota-pill-skills
 
-[workbuddy-quota-pill](https://github.com/taohuamu/workbuddy-quota-pill) 的 WorkBuddy 技能版。安装后在对话里问「还剩多少额度」，可以直接拿到各模型本周期（24 小时窗口）的配额百分比、重置时刻与触限预测。
+[workbuddy-quota-pill](https://github.com/taohuamu/workbuddy-quota-pill) 的 WorkBuddy 技能版。安装后在对话里问「还剩多少额度」，可以直接拿到各模型本周期（24 小时窗口）的配额百分比、重置时刻，以及按最近 15 分钟消耗算出的到上限时间。
 
 本仓库与主项目分开，是因为两者交付对象不同。主项目交付一个常驻桌面程序，这里交付一个可被调用的技能。不过数据层是同一份文件，具体请见下文「同源约束」。
 
