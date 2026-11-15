@@ -27,6 +27,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_UPSTREAM = os.path.abspath(
     os.path.join(HERE, "..", "..", "..", "workbuddy-quota-pill", "quota_watch.py"))
 LOCAL = os.path.join(HERE, "quota_watch.py")
+FORECAST_LOCAL = os.path.join(HERE, "forecast.py")
 REFERENCES = os.path.abspath(os.path.join(HERE, "..", "references"))
 
 DATE_RE = re.compile(r"上次核对[：:]\s*(\d{4}-\d{2}-\d{2})")
@@ -75,22 +76,30 @@ def main():
     args = ap.parse_args()
 
     code = 0
-    if not os.path.exists(args.upstream):
-        print("找不到上游文件：%s" % args.upstream)
-        print("技能副本仍在，但无法判断是否同源。")
-        code = 2
-    else:
-        up, lo = digest(args.upstream), digest(LOCAL)
+    # 数据层两份：算数的是 quota_watch，判预测的是 forecast。两个都必须同源，
+    # 否则技能版与桌面版会对同一个状态给出两个结论。
+    pairs = [
+        ("quota_watch.py", args.upstream, LOCAL),
+        ("forecast.py", os.path.join(os.path.dirname(args.upstream), "forecast.py"),
+         FORECAST_LOCAL),
+    ]
+    for name, upstream, local in pairs:
+        if not os.path.exists(upstream):
+            print("%s：找不到上游文件 %s" % (name, upstream))
+            print("  技能副本仍在，但无法判断是否同源。")
+            code = max(code, 2)
+            continue
+        up, lo = digest(upstream), digest(local)
         if up == lo:
-            print("同源 OK  %s" % lo[:16])
+            print("同源 OK  %-14s %s" % (name, lo[:16]))
+            continue
+        print("不同源：%-14s 上游 %s / 副本 %s" % (name, up[:16], lo[:16]))
+        if args.fix:
+            shutil.copyfile(upstream, local)
+            print("  已用上游覆盖副本，新哈希 %s" % digest(local)[:16])
         else:
-            print("不同源：上游 %s / 副本 %s" % (up[:16], lo[:16]))
-            if args.fix:
-                shutil.copyfile(args.upstream, LOCAL)
-                print("已用上游覆盖副本，新哈希 %s" % digest(LOCAL)[:16])
-            else:
-                print("执行 `python sync_check.py --fix` 同步，或先确认上游改动是否该进技能。")
-                code = 1
+            print("  执行 `python sync_check.py --fix` 同步，或先确认上游改动是否该进技能。")
+            code = max(code, 1)
 
     stale = check_reference_dates()
     if stale:

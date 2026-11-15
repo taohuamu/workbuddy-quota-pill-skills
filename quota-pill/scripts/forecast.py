@@ -25,6 +25,7 @@ k 是泊松过程在窗口内的充分统计量，量化误差只有 1/k。
 """
 import bisect
 import math
+import time
 
 WINDOW_MIN = 15.0      # 观测窗：只看最近这么久
 HORIZON_H = 2.0        # 预测时限：多少小时内会到 100% 才算「值得提前提醒」
@@ -331,8 +332,12 @@ def dur_minutes(minutes):
     return "%.1f 天" % (minutes / 1440.0)
 
 
-def phrase(fc, window_min=WINDOW_MIN):
-    """结果句。不含格数、不含速率、不含「1 小时内」这类承诺。"""
+def phrase(fc, window_min=WINDOW_MIN, brief=False):
+    """结果句。不含格数、不含速率、不含「1 小时内」这类承诺。
+
+    brief=True 去掉「按此速度」四个字，给胶囊卡片用——那里一行只有两百多像素，
+    长模型名本来就会把副标题挤到第二行。
+    """
     tier = (fc or {}).get("tier")
     if tier == "idle":
         return "近 %d 分钟无新增" % int(window_min)
@@ -345,6 +350,8 @@ def phrase(fc, window_min=WINDOW_MIN):
         return "数据不足"
     if fc.get("capped"):
         return "本周期内到不了上限"
+    if brief:
+        return "约 %s后到上限" % dur_minutes(eta)
     return "按此速度约 %s后到上限" % dur_minutes(eta)
 
 
@@ -370,7 +377,9 @@ def eta_cell(fc, window_min=WINDOW_MIN):
     if eta is None:
         return "—"
     if fc.get("capped"):
-        return "本周期内到不了"
+        # 桌面端是「标签 + 值」成对显示，前缀「按此速度」已在标签里，
+        # 值再写「本周期内到不了」会读成「按此速度 本周期内到不了」。
+        return "到不了上限"
     txt = "约 %s" % dur_minutes(eta)
     return txt + ("（样本少）" if tier == "few" else "")
 
@@ -383,14 +392,18 @@ def should_notify(m, pct=GATE_PCT):
 
 
 def attach(models, snaps, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
-           floor_pct=FLOOR_PCT, pct=GATE_PCT):
+           floor_pct=FLOOR_PCT, pct=GATE_PCT, now=None):
     """给每个在用的模型挂上 forecast，并让 level / verdict 只由百分比决定。
 
     报告层和通知层都调这一个，两处等级才不会分叉。
     为什么要重算 level：数据层的 level 里还有一条「低置信度且 ≥80% → critical，
     按最坏打算」，那是旧的端点差分口径。新口径下没有「置信度」这个概念，留着会让
     报告冒出「按最坏打算」这种旧说法，也会让冷却键按旧等级走。
+
+    `now` 默认取**当前时刻**，不是最后一条快照：一个模型三小时没动过，窗口就该是空的
+    （「近 15 分钟无新增」），而不是把它三小时前那阵爆发重新算一遍报给你。
     """
+    w_now = time.time() if now is None else now
     for m in models:
         if m.get("stale"):
             continue
@@ -398,7 +411,7 @@ def attach(models, snaps, window_min=WINDOW_MIN, horizon_h=HORIZON_H,
         cs = m.get("cycle_start")
         if cs:
             rows = [r for r in rows if r["ts"] >= cs - 1.0]
-        fc = decide(rows, window_min=window_min, horizon_h=horizon_h,
+        fc = decide(rows, now=w_now, window_min=window_min, horizon_h=horizon_h,
                     floor_pct=floor_pct, pct_threshold=pct,
                     hours_to_reset=m.get("hours_to_reset"))
         m["forecast"] = fc
