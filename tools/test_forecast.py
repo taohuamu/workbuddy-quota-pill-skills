@@ -96,8 +96,9 @@ def main():
     check("level 40 → ok", fc.level_of(40) == "ok")
 
     # 表格列
-    check("观测列", fc.obs_cell({"k": 4}) == "+4 格")
-    check("观测列空", fc.obs_cell({"k": 0}) == "无新增")
+    check("观测列", fc.obs_cell({"k": 4}) == "涨 4%")
+    check("观测列空", fc.obs_cell({"k": 0}) == "持平")
+    check("观测列不用内部单位「格」", "格" not in fc.obs_cell({"k": 4}))
 
     # 重置前不足一个窗口：不能写成「数据不足」（快照是全的，只是周期快结束）
     s_soon = series(90, 1, 30)
