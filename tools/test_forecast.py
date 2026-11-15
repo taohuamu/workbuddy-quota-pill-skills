@@ -99,6 +99,16 @@ def main():
     check("观测列", fc.obs_cell({"k": 4}) == "+4 格")
     check("观测列空", fc.obs_cell({"k": 0}) == "无新增")
 
+    # 重置前不足一个窗口：不能写成「数据不足」（快照是全的，只是周期快结束）
+    s_soon = series(90, 1, 30)
+    d_soon = fc.decide(s_soon, window_min=15, hours_to_reset=0.05)
+    check("距重置不足窗口 → tier=soon", d_soon["tier"] == "soon", d_soon)
+    check("soon 说「即将重置」", fc.phrase(d_soon) == "即将重置", fc.phrase(d_soon))
+    check("soon 的观测列留空", fc.obs_cell(d_soon) == "—", fc.obs_cell(d_soon))
+    check("soon 的时长列说「即将重置」", fc.eta_cell(d_soon) == "即将重置",
+          fc.eta_cell(d_soon))
+    check("soon 不触发提醒", d_soon["alert"] is False)
+
     # 接线：forecast.py 必须进 runtime 副本清单
     import install_task
     check("STAGE_FILES 含 forecast.py", "forecast.py" in install_task.STAGE_FILES,
