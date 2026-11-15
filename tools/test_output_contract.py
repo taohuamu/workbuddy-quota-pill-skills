@@ -221,6 +221,35 @@ def main():
         import shutil
         shutil.rmtree(bad, ignore_errors=True)
 
+    # 15. 没有 forecast 时的兜底文案（VERDICT_TEXT 映射表已删，改成显式分支）
+    code = "\n".join([
+        "import phrasing",
+        "print(phrasing.conclusion({'percent_used': 96, 'verdict': '已到上限，随时会被拒'}))",
+        "print(phrasing.conclusion({'percent_used': 70, 'verdict': '重置前就会耗尽',"
+        " 'eta_hours_to_limit': 2.0}))",
+        "print(hasattr(phrasing, 'VERDICT_TEXT'))",
+    ])
+    rp = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True,
+                        encoding="utf-8", cwd=os.path.join(SKILL, "scripts"))
+    outs = (rp.stdout or "").strip().splitlines()
+    check("无 forecast 时「已到上限」改口为即将触限",
+          len(outs) >= 1 and outs[0] == "即将触限", outs)
+    check("无 forecast 时带 eta 的耗尽句给时间",
+          len(outs) >= 2 and outs[1] == "2 小时内触限", outs)
+    check("VERDICT_TEXT 已删（不再留无消费方的映射表）",
+          len(outs) >= 3 and outs[2] == "False", outs)
+
+    # 16. 真路由清单里抄的表头必须与当前输出一致（列名改过一次，清单当年没跟着改）
+    rt = os.path.join(HERE, "route_test.md")
+    with open(rt, "r", encoding="utf-8") as f:
+        rt_text = f.read()
+    quoted = _re.findall(r"表头 `([^`\n]+)`", rt_text)
+    real_head = next((ln.strip() for ln in run(REPORT, "--no-cache").stdout.splitlines()
+                      if ln.startswith("| 模型")), "")
+    check("route_test.md 抄的表头与真实输出一致",
+          bool(quoted) and all(q == real_head for q in quoted),
+          (quoted[:1], real_head))
+
     return finish()
 
 

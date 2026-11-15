@@ -236,7 +236,10 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="只打印，不弹窗")
     ap.add_argument("--force", action="store_true", help="忽略冷却")
     args = ap.parse_args()
-    args.window = max(1, int(args.window or 15))   # 0 / 负数会让窗口计数失去意义
+    # 小于 1 分钟的窗口数不出东西，统一回落到默认值（与 quota_watch / 托盘一致）
+    args.window = int(args.window)
+    if args.window < 1:
+        args.window = int(forecast.WINDOW_MIN)
 
     # 一次读盘：报告与预测共用同一份快照。分两次读要多付一遍全量扫（约 0.9 秒），
     # 而这个脚本每 10 分钟被计划任务拉起一次。
