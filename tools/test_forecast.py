@@ -126,9 +126,9 @@ def main():
     check("soon 不触发提醒", d_soon["alert"] is False)
 
     # 按速度升级：证据够（k≥4）且撑不到重置 → 至少「注意」
-    def fake_fc(tier, eta, k=6):
+    def fake_fc(tier, eta, k=6, p=None):
         return {"tier": tier, "eta_min": eta, "k": k, "capped": False,
-                "window_min": 15.0, "alert": False, "p": None, "need": 20.0, "why": ""}
+                "window_min": 15.0, "alert": False, "p": p, "need": 20.0, "why": ""}
 
     check("38% 但两小时后到上限 → 注意",
           fc.level_of(38, fake_fc("ok", 120), 22.4) == "warn",
@@ -137,19 +137,26 @@ def main():
           fc.level_of(38, fake_fc("few", 120, k=2), 22.4) == "ok")
     check("撑得到重置不升级",
           fc.level_of(38, fake_fc("ok", 25 * 60), 22.4) == "ok")
+    check("已用不足 20% 不升级",
+          fc.level_of(7, fake_fc("ok", 336, p=7), 20.0) == "ok",
+          fc.level_of(7, fake_fc("ok", 336, p=7), 20.0))
+    check("过了 20% 才升级",
+          fc.level_of(20, fake_fc("ok", 336, p=20), 20.0) == "warn")
     check("距重置不足一个窗口不升级",
           fc.level_of(38, fake_fc("soon", None), 0.2) == "ok")
     check("用量带仍然优先", fc.level_of(95, fake_fc("ok", 5), 22.4) == "critical")
     check("没有 forecast 时退回用量带", fc.level_of(85) == "warn")
 
     # 页脚文案：谁撑不到重置
-    mk = lambda name, tier, eta, h2r: {"model": name, "hours_to_reset": h2r,
-                                       "forecast": fake_fc(tier, eta)}
+    mk = lambda name, tier, eta, h2r, p=None: {
+        "model": name, "hours_to_reset": h2r, "forecast": fake_fc(tier, eta, p=p)}
     strong_txt = fc.exhaust_text([mk("m1", "ok", 120, 22.4), mk("m2", "few", 600, 22.4)])
     check("页脚点名有证据的那个", "m1" in strong_txt and "早于重置" in strong_txt, strong_txt)
     check("样本少的只作补充说明，不进主句",
-          "样本少，未计入" in strong_txt and strong_txt.index("m2") > strong_txt.index("早于重置"),
+          "未计入" in strong_txt and strong_txt.index("m2") > strong_txt.index("早于重置"),
           strong_txt)
+    low_txt = fc.exhaust_text([mk("m4", "ok", 336, 20.0, p=7)])
+    check("用量还低时页脚只作参考", "仅供参考" in (low_txt or ""), low_txt)
     weak_txt = fc.exhaust_text([mk("m2", "few", 600, 22.4)])
     check("只有样本少时说「仅供参考」", "仅供参考" in (weak_txt or ""), weak_txt)
     check("都撑得到重置时页脚沉默",
