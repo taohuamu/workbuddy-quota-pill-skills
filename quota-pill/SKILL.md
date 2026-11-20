@@ -8,12 +8,10 @@ display_name: "配额胶囊——技能版"
 display_name_en: "Quota Pill — Skill Edition"
 examples_zh:
 - "我的额度还剩多少？"
-- "哪个模型快用完了？"
 - "按现在的速度，deepseek 还能撑多久？"
 - "快用完的时候提醒我"
 examples_en:
 - "How much quota do I have left?"
-- "Which model is closest to running out?"
 - "How long can deepseek last at this rate?"
 - "Alert me when my quota is running low"
 description_zh: "周期额度用量查看助手。可在对话里查看 WorkBuddy 各模型用掉多少额度、什么时候重置，以及按最近 15 分钟的消耗估算多久到上限。也可开启系统提醒，额度接近耗尽时会自动通知你（提醒不耗积分）。桌面版（Windows 托盘小窗）常驻右下角、随 WorkBuddy 启停，点开还有完整报告，见 github.com/taohuamu/workbuddy-quota-pill。"

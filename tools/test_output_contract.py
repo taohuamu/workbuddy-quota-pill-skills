@@ -205,6 +205,8 @@ def main():
     named = [s for s in zh + en if "quota-pill" in s or "配额胶囊" in s]
     check("示例不带技能名", not named, named)
     check("示例覆盖提醒场景", any("提醒" in s or "alert" in s.lower() for s in zh + en))
+    # 上限是硬限制：4 条时上传直接被拒（「examples_zh 最多 3 个示例，当前 4 个」）
+    check("示例不超过 3 条", len(zh) <= 3 and len(en) <= 3, "%d / %d" % (len(zh), len(en)))
 
     # 9. 高用量夹具：注意行出现，且两种模式的退出码一致（R7 的 B5）
     import datetime as _dt
