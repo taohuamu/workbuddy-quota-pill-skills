@@ -2,10 +2,20 @@
 name: quota-pill
 description: 查询 WorkBuddy 各模型本周期（24 小时滚动窗口）的配额已用百分比、重置时刻，以及按最近 15 分钟的消耗算出的到上限时间；也可开启阈值提醒（接近耗尽时弹系统通知）。当用户问额度、配额、限额还剩多少，问什么时候重置、还能撑多久、为什么数字不动、哪个模型快用完了，要一份用量摘要，或要求「快用完时提醒我」「开个额度提醒」时使用。只读本地会话日志，不联网、不登录、不改文件。
 agent_created: true
-version: 0.5.7
+version: 0.5.8
 license: MIT, see LICENSE.txt
 display_name: "配额胶囊——技能版"
 display_name_en: "Quota Pill — Skill Edition"
+examples_zh:
+- "我的额度还剩多少？"
+- "哪个模型快用完了？"
+- "按现在的速度，deepseek 还能撑多久？"
+- "快用完的时候提醒我"
+examples_en:
+- "How much quota do I have left?"
+- "Which model is closest to running out?"
+- "How long can deepseek last at this rate?"
+- "Alert me when my quota is running low"
 description_zh: "周期额度用量查看助手。可在对话里查看 WorkBuddy 各模型用掉多少额度、什么时候重置，以及按最近 15 分钟的消耗估算多久到上限。也可开启系统提醒，额度接近耗尽时会自动通知你（提醒不耗积分）。桌面版（Windows 托盘小窗）常驻右下角、随 WorkBuddy 启停，点开还有完整报告，见 github.com/taohuamu/workbuddy-quota-pill。"
 description_en: "A quota-usage viewer for chat: see how much each WorkBuddy model has used this cycle, when it resets, and how long until the limit at the last 15 minutes' pace. Optional system alerts notify you as the quota runs low (alerts run locally and use no credits). The desktop edition (a Windows tray pill) stays in the bottom-right corner, starts and stops with WorkBuddy, and opens a full report: github.com/taohuamu/workbuddy-quota-pill."
 visibility: "public"

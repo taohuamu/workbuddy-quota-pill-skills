@@ -182,6 +182,30 @@ def main():
     check("notify 只有一个取快照调用点", nsrc.count("load_snapshots()") == 1,
           "出现 %d 次" % nsrc.count("load_snapshots()"))
 
+    # 8e. 上架示例（「试试这样问我」）必须成对、无占位符、不带技能名（R19 的 B24）
+    def _examples(key):
+        with open(os.path.join(SKILL, "SKILL.md"), encoding="utf-8") as f:
+            lines = f.read().splitlines()
+        out, on = [], False
+        for ln in lines:
+            if ln.startswith(key + ":"):
+                on = True
+                continue
+            if on:
+                if ln.startswith("- "):
+                    out.append(ln[2:].strip().strip('"'))
+                elif ln and not ln.startswith((" ", "\t")):
+                    break
+        return out
+
+    zh, en = _examples("examples_zh"), _examples("examples_en")
+    check("示例存在且中英成对", len(zh) >= 2 and len(zh) == len(en), "%d / %d" % (len(zh), len(en)))
+    bad = [s for s in zh + en if "XX" in s or "xx" in s or "[" in s or "]" in s]
+    check("示例不含占位符", not bad, bad)
+    named = [s for s in zh + en if "quota-pill" in s or "配额胶囊" in s]
+    check("示例不带技能名", not named, named)
+    check("示例覆盖提醒场景", any("提醒" in s or "alert" in s.lower() for s in zh + en))
+
     # 9. 高用量夹具：注意行出现，且两种模式的退出码一致（R7 的 B5）
     import datetime as _dt
     with tempfile.TemporaryDirectory() as hi:
