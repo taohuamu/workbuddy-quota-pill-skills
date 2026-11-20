@@ -58,6 +58,16 @@ def main():
     check("表头含观测列", "近 15 分钟" in text)
     check("表头含读数列", "按此速度" in text)
     check("旧的「可信度」列已移除", "可信度" not in text)
+
+    # 2b. 包内 START-HERE.txt 的列头也必须与真实表头一致（R17 的 B23）
+    #     它只存在于打包字符串里，不会出现在任何 .md 里，最容易漏。
+    sys.path.insert(0, HERE)
+    import package as pkg
+    cols = [c.strip() for c in header.strip().strip("|").split("|")]
+    missing = [c for c in cols if c not in pkg.START_HERE]
+    check("试装说明列头与真实表头一致", not missing, missing)
+    check("试装说明不再提旧的「增速 / 预计触限 / 可信度」",
+          "可信度" not in pkg.START_HERE and "预计触限" not in pkg.START_HERE)
     body = [ln for ln in text.splitlines() if ln.startswith("| `")]
     check("表体行数 = 本周期模型数", len(body) == len(live),
           "表体 %d / live %d" % (len(body), len(live)))
