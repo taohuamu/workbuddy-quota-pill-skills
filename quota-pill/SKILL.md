@@ -6,8 +6,8 @@ version: 0.5.7
 license: MIT, see LICENSE.txt
 display_name: "配额胶囊——技能版"
 display_name_en: "Quota Pill — Skill Edition"
-description_zh: "周期额度用量查看助手。可在对话里查 WorkBuddy 各模型用掉多少额度、什么时候重置，以及按最近 15 分钟的消耗估算多久到上限。需要时开启系统提醒，接近耗尽会自动通知你。桌面版（Windows 托盘小窗）常驻右下角、随 WorkBuddy 启停，点开还有完整报告，见 github.com/taohuamu/workbuddy-quota-pill。"
-description_en: "A quota-usage viewer for chat: see how much each WorkBuddy model has used this cycle, when it resets, and how long until the limit at the last 15 minutes' pace. Optional system alerts notify you as the quota runs low. The desktop edition (a Windows tray pill) stays in the bottom-right corner, starts and stops with WorkBuddy, and opens a full report: github.com/taohuamu/workbuddy-quota-pill."
+description_zh: "周期额度用量查看助手。可在对话里查看 WorkBuddy 各模型用掉多少额度、什么时候重置，以及按最近 15 分钟的消耗估算多久到上限。也可开启系统提醒，额度接近耗尽时会自动通知你（提醒不耗积分）。桌面版（Windows 托盘小窗）常驻右下角、随 WorkBuddy 启停，点开还有完整报告，见 github.com/taohuamu/workbuddy-quota-pill。"
+description_en: "A quota-usage viewer for chat: see how much each WorkBuddy model has used this cycle, when it resets, and how long until the limit at the last 15 minutes' pace. Optional system alerts notify you as the quota runs low (alerts run locally and use no credits). The desktop edition (a Windows tray pill) stays in the bottom-right corner, starts and stops with WorkBuddy, and opens a full report: github.com/taohuamu/workbuddy-quota-pill."
 visibility: "public"
 allowed-tools: Bash(python:*) Read
 ---
