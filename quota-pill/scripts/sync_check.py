@@ -21,6 +21,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -41,15 +42,47 @@ def digest(path):
     return h.hexdigest()
 
 
-def check_reference_dates():
-    """日期早于文件最后修改日期 → 内容改过但没更新日期。返回提醒列表。"""
-    if not os.path.isdir(REFERENCES):
+def _git(args, cwd):
+    """跑一条 git 命令，失败一律返回空串（没装 git、不在仓库里都算）。"""
+    try:
+        out = subprocess.run(["git"] + args, cwd=cwd, capture_output=True,
+                             text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip() if out.returncode == 0 else ""
+
+
+def content_date(path):
+    """文件的「内容日期」，返回 (date, 来源说明)。
+
+    优先用 git 的最后一次提交日期：clone、解压、复制都不改谁提交了什么，
+    但会把 mtime 刷成当下 —— 拿 mtime 当内容日期，每次重新 clone 都会把全部
+    references 误报成「内容改过、日期没跟」。
+
+    只有工作树里真有未提交改动（或不在 git 仓库里）时才退回 mtime，
+    那种情况下 mtime 才是内容真的变了的证据。
+    """
+    folder = os.path.dirname(os.path.abspath(path))
+    name = os.path.basename(path)
+    mtime = dt.date.fromtimestamp(os.path.getmtime(path))
+    dirty = _git(["status", "--porcelain", "--", name], folder)
+    if dirty:
+        return mtime, "未提交改动，按 mtime"
+    stamp = _git(["log", "-1", "--format=%cs", "--", name], folder)
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", stamp or ""):
+        return dt.datetime.strptime(stamp, "%Y-%m-%d").date(), "最后一次提交"
+    return mtime, "无 git 记录，按 mtime"
+
+
+def check_reference_dates(ref_dir):
+    """日期早于内容最后变动日 → 内容改过但没更新日期。返回提醒列表。"""
+    if not ref_dir or not os.path.isdir(ref_dir):
         return []
     problems = []
-    for name in sorted(os.listdir(REFERENCES)):
+    for name in sorted(os.listdir(ref_dir)):
         if not name.endswith(".md"):
             continue
-        path = os.path.join(REFERENCES, name)
+        path = os.path.join(ref_dir, name)
         try:
             text = open(path, encoding="utf-8").read()
         except OSError:
@@ -58,14 +91,15 @@ def check_reference_dates():
         if not m:
             continue
         claimed = m.group(1)
-        mtime = dt.date.fromtimestamp(os.path.getmtime(path))
         try:
             claimed_date = dt.datetime.strptime(claimed, "%Y-%m-%d").date()
         except ValueError:
             problems.append("%s：日期无法解析（%s）" % (name, claimed))
             continue
-        if claimed_date < mtime:
-            problems.append("%s：内容改于 %s，头部仍写 %s" % (name, mtime, claimed))
+        actual, source = content_date(path)
+        if claimed_date < actual:
+            problems.append("%s：内容改于 %s（%s），头部仍写 %s"
+                            % (name, actual, source, claimed))
     return problems
 
 
@@ -101,7 +135,7 @@ def main():
             print("  执行 `python sync_check.py --fix` 同步，或先确认上游改动是否该进技能。")
             code = max(code, 1)
 
-    stale = check_reference_dates()
+    stale = check_reference_dates(REFERENCES)
     if stale:
         print("\nreferences 时效提醒（不阻断）：")
         for line in stale:

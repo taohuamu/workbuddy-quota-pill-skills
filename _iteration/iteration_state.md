@@ -1,6 +1,6 @@
 # 迭代状态（第五周期 · 技能版）
 
-轮次：5 / 5（R15 完成 · 迭代结束）
+轮次：5 / 5（R15 完成 · 迭代结束；R16 为收敛后回流，见「收敛后回流一」）
 技能路径：`D:\AI_work\WorkBuddy_work\2026-11-05-22-37-57\workbuddy-quota-pill-skills\quota-pill`
 基线备份路径：`_iteration/backup_baseline_20261120_2302`（14 文件 / 168 KB，含 __pycache__）
 起始版本：0.5.5（本周期只有判据与文档修正，未改对外行为，版本号不动）
@@ -83,6 +83,32 @@ validate PASS + sync OK。下一轮的候选（`docs/how-it-works.md` 的数字�
 ## 中断标记
 
 无
+
+---
+
+## 收敛后回流一（2026-11-20 23:50 · R16 · references 日期判据）
+
+第五周期收敛后复查 `sync_check.py`，抓到一条可复现的误报：
+
+- **[B22] P2**　`check_reference_dates()` 拿 mtime 当「内容日期」。而 clone / 解压 / 复制
+  都会把 mtime 刷成当下，于是**换台机器或重新 clone 一次，三份 references 全部被报
+  「内容改于 X，头部仍写 Y」**——内容根本没变，只是文件被复制了。
+  复现：`touch -t 202611250900 quota-pill/references/data-source.md`（内容不动）后跑
+  `python quota-pill/scripts/sync_check.py` → 报「内容改于 2026-11-25，头部仍写 2026-11-20」。
+
+处置 `[C35]`：`content_date(path)` 取代裸 mtime——工作树干净且有 git 记录时用最后一次
+提交日期（`git log -1 --format=%cs`），有未提交改动或不在仓库里才退回 mtime，并在提醒里
+标明依据（「未提交改动，按 mtime」/「最后一次提交」）。`check_reference_dates(ref_dir)`
+改为收目录参数，便于测试指向临时目录。
+
+新增 `[T31]`：`tools/test_sync_check.py` 11 条（clone 不改判据 / 脏文件仍报 / 无 git 回退 /
+日期较新不报 / 缺日期跳过 / 坏日期报解析失败 / 目录不存在与 None 安全）。
+**反向验证**：把 `content_date` 换回 mtime 口径，同一套用例 8/11（3 条 FAIL），恢复后 11/11。
+
+接线：`README` 结构树补该文件；`tools/package.py` 自检增加「引用时效判据」一项，现为五项。
+
+回归：预测 47/47、契约 51/51、副本判据 5/5、日期判据 11/11、validate PASS、sync OK、
+打包自检 5/5。版本仍 0.5.5（只动开发者工具，不改技能对外行为）。
 
 ---
 

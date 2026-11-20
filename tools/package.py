@@ -142,6 +142,8 @@ def preflight():
         ("预测层行为", [os.path.join(HERE, "test_forecast.py")]),
         # 副本判据测的是装完之后任务跑的那份代码，与包完整性直接相关，别漏
         ("运行副本判据", [os.path.join(HERE, "test_install_task.py")]),
+        # references 的「上次核对」日期是它唯一的时效凭据，发版前必须对得上
+        ("引用时效判据", [os.path.join(HERE, "test_sync_check.py")]),
     ]
     for label, cmd in steps:
         r = subprocess.run([sys.executable, *cmd], capture_output=True,
