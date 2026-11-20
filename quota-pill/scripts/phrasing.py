@@ -9,17 +9,17 @@
 本文件只做两件事：给它补上「模型 已用 N%」的前缀；以及在**没有 forecast** 时（例如停在
 上一周期的模型）把数据层的 `verdict` 翻成人话。只换说法，不改判定。
 """
-import quota_watch as qw
+import quota_pill as qp
 import forecast
 
 
 def _within(hours):
     """「4.2 小时内触限」。整点小时去掉 .0，让「3 小时内」不被写成「3.0 小时内」。"""
-    return "%s内触限" % qw.fmt_dur(hours).replace(".0 小时", " 小时")
+    return "%s内触限" % qp.fmt_dur(hours).replace(".0 小时", " 小时")
 
 
 def conclusion(m, high_pct=80.0):
-    """结论文案。m 是 quota_watch 产出的模型字典。
+    """结论文案。m 是 quota_pill 产出的模型字典。
 
     有 forecast 就用它的结果句（「按此速度约 40 分钟后到上限」/「近 15 分钟无新增」）。
     下面这几个分支只在没有 forecast 时兜底——例如停在上一周期的模型。

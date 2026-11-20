@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""检查技能里内置的 quota_watch.py 是否与主项目同源。
+"""检查技能里内置的 quota_pill.py 是否与主项目同源。
 
 技能必须自包含，所以数据层需要一份副本；副本一旦与上游脱节，
 技能给出的数字就会和桌面版不一致。本脚本用哈希兜住这件事。
@@ -26,8 +26,8 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_UPSTREAM = os.path.abspath(
-    os.path.join(HERE, "..", "..", "..", "workbuddy-quota-pill", "quota_watch.py"))
-LOCAL = os.path.join(HERE, "quota_watch.py")
+    os.path.join(HERE, "..", "..", "..", "workbuddy-quota-pill", "quota_pill.py"))
+LOCAL = os.path.join(HERE, "quota_pill.py")
 FORECAST_LOCAL = os.path.join(HERE, "forecast.py")
 REFERENCES = os.path.abspath(os.path.join(HERE, "..", "references"))
 
@@ -110,10 +110,10 @@ def main():
     args = ap.parse_args()
 
     code = 0
-    # 数据层两份：算数的是 quota_watch，判预测的是 forecast。两个都必须同源，
+    # 数据层两份：算数的是 quota_pill，判预测的是 forecast。两个都必须同源，
     # 否则技能版与桌面版会对同一个状态给出两个结论。
     pairs = [
-        ("quota_watch.py", args.upstream, LOCAL),
+        ("quota_pill.py", args.upstream, LOCAL),
         ("forecast.py", os.path.join(os.path.dirname(args.upstream), "forecast.py"),
          FORECAST_LOCAL),
     ]

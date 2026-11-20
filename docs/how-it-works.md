@@ -80,7 +80,7 @@
 - 一条快照都没有 → 「数据不足」
 
 **只换说法，不碰数据层**——数据层只加了一个可选参数 `loaded=`（让报告和预测共用一次
-全量扫），`sync_check` 同时校验 `quota_watch.py` 与 `forecast.py` 两个哈希。
+全量扫），`sync_check` 同时校验 `quota_pill.py` 与 `forecast.py` 两个哈希。
 
 ---
 
@@ -108,7 +108,7 @@ python scripts/quota_report.py && python scripts/quota_report.py
 |---|---|---|
 | `skill-cache.json` | `quota_report.py` | 签名缓存，删掉只是下次重扫 |
 | `notify-state.json` | `notify.py` | 同一模型同一等级的 2 小时冷却 |
-| `runtime\` | `install_task.py` | 提醒脚本的运行副本：`notify.py`、`quota_watch.py`、`phrasing.py` 三个文件 |
+| `runtime\` | `install_task.py` | 提醒脚本的运行副本：`notify.py`、`quota_pill.py`、`phrasing.py` 三个文件 |
 | `install.json` | `install_task.py` | 安装时的间隔与阈值，供 `--status` 回读；卸载时删除 |
 | `notify.log` | `notify.py` | 每次检查留一行，超 200 KB 轮转成 `.1` |
 
@@ -127,7 +127,7 @@ python scripts/quota_report.py && python scripts/quota_report.py
 | 形态 | 常驻小窗，开机自启 | 只在提问时被唤起 |
 | 谁渲染 | 自己用 Tk 画三态 | 宿主渲染 Markdown |
 | 输入框避让 | GDI 像素带探测 | 没有，也不需要 |
-| 数据层 | 同一份 `quota_watch.py` | 同一份，逐字节 |
+| 数据层 | 同一份 `quota_pill.py` | 同一份，逐字节 |
 | 提醒 | 内置 | 可选附件，靠计划任务 |
 | 单次成本 | 常驻内存 + 定时刷新 | 0.04 秒命中缓存 / 1.7 秒重扫 |
 

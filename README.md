@@ -12,7 +12,7 @@ workbuddy-quota-pill-skills/
 ├── quota-pill/                  # 技能本体，可直接放进 ~/.workbuddy/skills/
 │   ├── SKILL.md                 # 路由 + 操作步骤 + 规则 + 坑 + 可选提醒
 │   ├── scripts/
-│   │   ├── quota_watch.py       # 数据层，与主项目逐字节同源
+│   │   ├── quota_pill.py       # 数据层，与主项目逐字节同源
 │   │   ├── forecast.py          # 预测层：数涨幅 → χ² 判定 → Beta 分位给时间（同样同源）
 │   │   ├── quota_report.py      # 输出层：Markdown 表格 + 签名缓存
 │   │   ├── notify.py            # 阈值提醒：命中时发系统通知
@@ -76,7 +76,7 @@ python tools/package.py --tag test2
 
 ## 同源约束
 
-`quota-pill/scripts/quota_watch.py` 是主项目 `quota_watch.py` 的**逐字节副本**，不是重新实现。原因是配额周期、stale 判定、置信度分档这些语义一旦有两份实现，就必然漂移——第一轮迭代里手写版本就因为漏掉「`reset_at` 是字符串」把整列算成了空。
+`quota-pill/scripts/quota_pill.py` 是主项目 `quota_pill.py` 的**逐字节副本**，不是重新实现。原因是配额周期、stale 判定、置信度分档这些语义一旦有两份实现，就必然漂移——第一轮迭代里手写版本就因为漏掉「`reset_at` 是字符串」把整列算成了空。
 
 主项目改了数据层，跑一次：
 
@@ -87,7 +87,7 @@ python quota-pill/scripts/sync_check.py --fix  # 用上游覆盖副本
 
 它还会顺带校验 `references/` 的「上次核对」日期是否落后于文件自身的修改时间——内容改了却忘改日期，读者会以为结论还停在旧日期。这一项只提醒，不阻断。
 
-单独克隆本仓库时旁边没有主项目，`sync_check.py` 会退出 2 并打印「找不到上游文件」。这是正常现象，不是安装问题；要对比就手动指过去：`--upstream <主项目>/quota_watch.py`。
+单独克隆本仓库时旁边没有主项目，`sync_check.py` 会退出 2 并打印「找不到上游文件」。这是正常现象，不是安装问题；要对比就手动指过去：`--upstream <主项目>/quota_pill.py`。
 
 ## 主动提醒（可选附件）
 
@@ -115,7 +115,7 @@ python quota-pill/scripts/install_task.py --uninstall
 ScheduledTasks 模块（经 powershell 调用），两者都不可用才把命令交给你手动执行。
 `--backend powershell` 可强制指定。判定依据与错误码对照见 `quota-pill/references/scheduling.md`。
 
-安装时会把 `notify.py`、`quota_watch.py`、`phrasing.py`、`forecast.py` 四个文件复制到
+安装时会把 `notify.py`、`quota_pill.py`、`phrasing.py`、`forecast.py` 四个文件复制到
 `%LOCALAPPDATA%\quota-pill\runtime\`，任务指向这份副本，
 所以删掉、移动、重装技能都不会让任务指向空路径；改了脚本要重跑一次安装，`--status` 会提示副本落后。
 `--dry-run` 只打印将执行的命令，不建目录也不注册任务。

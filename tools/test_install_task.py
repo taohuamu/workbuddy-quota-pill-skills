@@ -54,6 +54,14 @@ def main():
         it.stage_runtime()
         check("重新部署后不再落后", it.staged_is_stale() is False)
 
+        # 改名前（quota_watch.py → quota_pill.py）部署过的用户：旧模块不能留在 runtime，
+        # 否则会躺一份没人 import 的副本，排查时容易看错文件。
+        legacy = os.path.join(tmp, "quota_watch.py")
+        with open(legacy, "w", encoding="utf-8") as fh:
+            fh.write("# 旧版数据层\n")
+        it.stage_runtime()
+        check("部署时清掉改名前留下的旧模块", not os.path.exists(legacy))
+
         os.remove(os.path.join(tmp, "notify.py"))
         check("副本缺文件 → 判落后", it.staged_is_stale() is True)
     finally:

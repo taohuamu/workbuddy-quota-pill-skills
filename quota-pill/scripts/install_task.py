@@ -33,7 +33,10 @@ STATE_DIR = os.path.join(os.environ.get("LOCALAPPDATA") or os.path.expanduser("~
 RUNTIME_DIR = os.path.join(STATE_DIR, "runtime")
 # 任务跑的是这里的副本，不是技能目录。notify.py 依赖同目录另外两个模块，漏一个就
 # 直接 ImportError——而且任务失败是静默的，只有 --status 的 LastTaskResult 会变。
-STAGE_FILES = ("notify.py", "quota_watch.py", "phrasing.py", "forecast.py")
+STAGE_FILES = ("notify.py", "quota_pill.py", "phrasing.py", "forecast.py")
+# 改名前部署过的旧模块。升级时留着它，会在 runtime 里躺一份没人 import 的副本；
+# 更麻烦的是排查时会误以为「跑的就是这份」。部署时一并清掉。
+LEGACY_STAGE_FILES = ("quota_watch.py",)
 # 安装时用的间隔与阈值写在这里，供 --status 回读。任务定义里也有这些参数，但两条
 # 后端的 Arguments 格式不同（schtasks 是转义过的整串），解析容易出错，所以记自己的账。
 INSTALL_RECORD = os.path.join(STATE_DIR, "install.json")
@@ -63,6 +66,13 @@ def stage_runtime():
         src = os.path.join(HERE, name)
         if os.path.exists(src):
             shutil.copy2(src, os.path.join(RUNTIME_DIR, name))
+    for name in LEGACY_STAGE_FILES:
+        stale = os.path.join(RUNTIME_DIR, name)
+        if os.path.exists(stale) and name not in STAGE_FILES:
+            try:
+                os.remove(stale)
+            except OSError:
+                pass          # 被旧任务占着就下次再删，不影响新副本
     return os.path.join(RUNTIME_DIR, "notify.py")
 
 

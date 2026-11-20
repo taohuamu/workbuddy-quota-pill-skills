@@ -1,6 +1,6 @@
 # 计划任务：后端选择与已知限制
 
-上次核对：2026-11-20（本轮有实测，见文末「验证状态」）
+上次核对：2026-11-21（本轮有实测，见文末「验证状态」）
 
 提醒用的是 Windows 计划任务：每 N 分钟拉起一次 `notify.py`，跑完即退。本文记录
 「用哪个后端注册」的判断依据，以及各后端在本项目里踩到的限制。
@@ -52,7 +52,7 @@ probe_scheduler.py --json
 ## 运行副本
 
 任务动作指向 `%LOCALAPPDATA%\quota-pill\runtime\notify.py`，而不是技能目录里的脚本。
-安装时把 `notify.py`、`quota_watch.py`、`phrasing.py`、`forecast.py` 四个文件复制过去
+安装时把 `notify.py`、`quota_pill.py`、`phrasing.py`、`forecast.py` 四个文件复制过去
 （`STAGE_FILES` 是唯一清单），卸载时一并删除。**少一个就是 ImportError**，而任务失败是
 静默的——界面上不显示，只有 `--status` 的 `LastTaskResult` 会变。`forecast.py` 曾经漏在
 白名单外，任务每次都在 import 处失败，却没有任何界面提示。
@@ -132,7 +132,7 @@ probe_scheduler.py --json
   `[Console]::OutputEncoding=[Text.Encoding]::UTF8`。
 - **只在本机验证过**：另一条路（另一台机器、另一套策略）的实际表现可能不同，
   所以保留探测而不是写死。
-- **任务跑的是副本，不是技能目录**：安装时会把 `notify.py`、`quota_watch.py`、`phrasing.py`、
+- **任务跑的是副本，不是技能目录**：安装时会把 `notify.py`、`quota_pill.py`、`phrasing.py`、
   `forecast.py` 复制到 `%LOCALAPPDATA%\quota-pill\runtime\`，任务动作指向副本。好处是删掉、
   移动、重装技能都不会让任务指向空路径；代价是改了脚本要重跑一次安装，`--status` 会提示
   副本落后（按内容哈希比对，不是按大小）。

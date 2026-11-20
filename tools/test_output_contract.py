@@ -130,23 +130,23 @@ def main():
 
     # 7. 内置数据层与主项目同源
     s = run(os.path.join(SKILL, "scripts", "sync_check.py"))
-    check("内置 quota_watch 与主项目同源", s.returncode == 0, s.stdout.strip()[:80])
+    check("内置 quota_pill 与主项目同源", s.returncode == 0, s.stdout.strip()[:80])
 
     # 8. 只读一次盘：报告与预测共用同一份快照（R6 的 B1）
     sys.path.insert(0, os.path.join(SKILL, "scripts"))
     import quota_report as qr
-    real = qr.qw.load_snapshots
+    real = qr.qp.load_snapshots
     calls = {"n": 0}
 
     def counting():
         calls["n"] += 1
         return real()
 
-    qr.qw.load_snapshots = counting
+    qr.qp.load_snapshots = counting
     try:
         qr.load_report(use_cache=False)
     finally:
-        qr.qw.load_snapshots = real
+        qr.qp.load_snapshots = real
     check("load_report 只读一次快照", calls["n"] == 1, "调用 %d 次" % calls["n"])
 
     # 8c. 缓存签名与写进缓存的报告同源（R12 的 B16）：本会话日志在扫描期间还在被追加，

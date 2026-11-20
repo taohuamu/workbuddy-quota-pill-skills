@@ -80,7 +80,7 @@
 |---|---|---|
 | `can't open file 'scripts/quota_report.py'` | 用了相对路径 | 确认调用写的是 `${CODEBUDDY_SKILL_DIR}/scripts/quota_report.py` |
 | `Permission denied` 或工具被拦 | `allowed-tools` 粒度 | 临时把 `allowed-tools` 改成 `Bash Read`，验证后记录；不要静默放宽 |
-| `ModuleNotFoundError: quota_watch` | 脚本不在预期目录 | 检查技能目录下 `scripts/quota_watch.py` 是否随包存在 |
+| `ModuleNotFoundError: quota_pill` | 脚本不在预期目录 | 检查技能目录下 `scripts/quota_pill.py` 是否随包存在 |
 
 ---
 

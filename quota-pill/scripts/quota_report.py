@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""配额胶囊技能的输出层：把 quota_watch 的报告排成 Markdown。
+"""配额胶囊技能的输出层：把 quota_pill 的报告排成 Markdown。
 
 设计要点：
-- 数据逻辑不在这里重复实现，全部来自同目录的 quota_watch.py（与主项目同源）。
+- 数据逻辑不在这里重复实现，全部来自同目录的 quota_pill.py（与主项目同源）。
 - 有缓存：按「日志文件集合 + mtime + 大小」签名，命中且 300 秒内直接复用。
 - 输出自带取数耗时与数据新鲜度，用户一眼能判断数据是否是新的。
 
@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-import quota_watch as qw  # noqa: E402  同源数据层
+import quota_pill as qp  # noqa: E402  同源数据层
 import phrasing  # noqa: E402  与通知共用同一句文案
 import forecast  # noqa: E402  与通知共用同一套预测
 
@@ -50,7 +50,7 @@ def log_signature():
     日志是追加写，size 必变，所以实际不受影响；提高精度只是把边界推远。
     """
     parts = []
-    for fp in glob.glob(os.path.join(qw.PROJECTS, "*", "*.jsonl")):
+    for fp in glob.glob(os.path.join(qp.PROJECTS, "*", "*.jsonl")):
         try:
             st = os.stat(fp)
         except OSError:
@@ -86,8 +86,8 @@ def load_report(use_cache=True):
     # 一次读盘，报告与预测共用：build_report 支持传入已读好的快照。
     # 分成两次读等于每次重扫多付一遍全量扫——实测 1.96 秒 vs 0.95 秒，
     # 而这个数字会原样打在表格末行给用户看。
-    snaps, n_files, n_rec = qw.load_snapshots()
-    rep = qw.build_report(WINDOW_MIN, forecast.HORIZON_H,
+    snaps, n_files, n_rec = qp.load_snapshots()
+    rep = qp.build_report(WINDOW_MIN, forecast.HORIZON_H,
                           loaded=(snaps, n_files, n_rec))
     attach(rep.get("models") or [], snaps)
     rep["has_risk"] = any(m.get("level") == "critical"
@@ -149,7 +149,7 @@ def render(rep, cached, cost):
         "合计 %d 个模型%s · 取数 %.2f 秒（%s） · 日志目录 `%s`" % (
             len(models),
             "（另有 %d 个停在上一周期，未计入）" % stale if stale else "",
-            cost, "命中缓存" if cached else "重新扫描", qw.HOME),
+            cost, "命中缓存" if cached else "重新扫描", qp.HOME),
     ]
     # 三路并集：达提醒线、已触限、以及「证据够且按此速度撑不到重置」。
     # 第三路是补的——曾有模型用掉 41%、按当前速度 1.8 小时后到上限，表里写着这个数，

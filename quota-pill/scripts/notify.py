@@ -21,7 +21,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import quota_watch as qw
+import quota_pill as qp
 import phrasing
 import forecast
 
@@ -236,15 +236,15 @@ def main():
     ap.add_argument("--dry-run", action="store_true", help="只打印，不弹窗")
     ap.add_argument("--force", action="store_true", help="忽略冷却")
     args = ap.parse_args()
-    # 小于 1 分钟的窗口数不出东西，统一回落到默认值（与 quota_watch / 托盘一致）
+    # 小于 1 分钟的窗口数不出东西，统一回落到默认值（与 quota_pill / 托盘一致）
     args.window = int(args.window)
     if args.window < 1:
         args.window = int(forecast.WINDOW_MIN)
 
     # 一次读盘：报告与预测共用同一份快照。分两次读要多付一遍全量扫（约 0.9 秒），
     # 而这个脚本每 10 分钟被计划任务拉起一次。
-    snaps, n_files, n_rec = qw.load_snapshots()
-    report = qw.build_report(args.window, args.warn, loaded=(snaps, n_files, n_rec))
+    snaps, n_files, n_rec = qp.load_snapshots()
+    report = qp.build_report(args.window, args.warn, loaded=(snaps, n_files, n_rec))
     models = report.get("models") or []
     if not models:
         log(report.get("error") or "没有可用的配额快照")
