@@ -13,5 +13,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# 迭代基线备份（体积大，路径与哈希见 _iteration/总结报告.md）
-_iteration/backup_baseline_*/
+# 迭代备份（体积大，路径与哈希见 _iteration/总结报告.md）
+_iteration/backup_*/
+# 逐轮单文件快照：收敛后合并进 _iteration/backups/*.zip，目录形态不再入库
+_iteration/backups/
