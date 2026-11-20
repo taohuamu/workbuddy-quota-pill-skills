@@ -33,6 +33,7 @@ workbuddy-quota-pill-skills/
 │   ├── validate_skill.py        # frontmatter 与结构校验
 │   ├── test_output_contract.py  # 输出层契约测试（含退出码、列数、文档一致性）
 │   ├── test_forecast.py         # 预测层行为测试（观测/判定/读数/文案）
+│   ├── test_install_task.py     # 运行副本判据（内容哈希，不比大小）
 │   └── route_test.md            # 真路由测试清单（需新会话手工执行）
 └── docs/
     └── how-it-works.md          # 运行逻辑：链路、判定、缓存、失效模式

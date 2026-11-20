@@ -70,12 +70,15 @@ def load_report(use_cache=True):
     """返回 (report, 是否命中缓存, 取数秒数)。"""
     t0 = time.perf_counter()
     path = cache_file()
+    # 签名只算一次，查缓存与写缓存用同一个：本会话的日志在扫描期间还会被追加，
+    # 若写缓存时重算，就会把「读后的签名」配上「读前的数据」——下一次在 TTL 内
+    # 命中，拿到的是缺了最后几行的旧报告，而且签名看起来完全对得上。
+    sig = log_signature()
     if use_cache and path:
         try:
             with open(path, "r", encoding="utf-8") as f:
                 blob = json.load(f)
-            if (blob.get("sig") == log_signature()
-                    and time.time() - blob.get("at", 0) < CACHE_TTL):
+            if blob.get("sig") == sig and time.time() - blob.get("at", 0) < CACHE_TTL:
                 return blob["report"], True, time.perf_counter() - t0
         except (OSError, ValueError, KeyError):
             pass
@@ -93,7 +96,7 @@ def load_report(use_cache=True):
     if path:
         try:
             with open(path, "w", encoding="utf-8") as f:
-                json.dump({"sig": log_signature(), "at": time.time(),
+                json.dump({"sig": sig, "at": time.time(),
                            "report": rep}, f, ensure_ascii=False)
         except OSError:
             pass
@@ -114,11 +117,23 @@ def fmt_age(ts):
 def render(rep, cached, cost):
     models = [m for m in rep.get("models", []) if not m.get("stale")]
     if rep.get("error") or not models:
-        return "没有找到本周期内的配额记录。\n\n%s" % (
-            rep.get("error") or "日志里没有带 quota 的行，先正常对话一轮。")
+        # 三种「没有可显示的模型」要分开说，否则会把读者引到错的排查方向：
+        # 读取失败 / 全部停在上一周期（日志里明明有 quota 行）/ 真的没有 quota 行。
+        stale = [m for m in rep.get("models", []) if m.get("stale")]
+        if rep.get("error"):
+            why = rep["error"]
+        elif stale:
+            why = ("本周期还没有模型被使用：日志里只有上一周期的 %d 个模型的记录，"
+                   "用过任意一个模型后再查。" % len(stale))
+        else:
+            why = "日志里没有带 quota 的行，先正常对话一轮。"
+        return "没有找到本周期内的配额记录。\n\n%s" % why
 
     lines = [
-        "| 模型 | 已用 | 本周期重置 | 近 %d 分钟 | 按此速度 | 数据新鲜度 |" % WINDOW_MIN,
+        # 窗口取报告里的那个，不用模块常量：报告带着 window_min 就是为了让展示层
+        # 与读数同源，写死常量在加了别的窗口之后会让表头与数字对不上。
+        "| 模型 | 已用 | 本周期重置 | 近 %d 分钟 | 按此速度 | 数据新鲜度 |"
+        % int(rep.get("window_min") or WINDOW_MIN),
         "|---|---:|---|---:|---|---|",
     ]
     for m in models:

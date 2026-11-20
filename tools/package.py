@@ -140,6 +140,8 @@ def preflight():
                           os.path.join(SKILL, "SKILL.md")]),
         ("输出层契约", [os.path.join(HERE, "test_output_contract.py")]),
         ("预测层行为", [os.path.join(HERE, "test_forecast.py")]),
+        # 副本判据测的是装完之后任务跑的那份代码，与包完整性直接相关，别漏
+        ("运行副本判据", [os.path.join(HERE, "test_install_task.py")]),
     ]
     for label, cmd in steps:
         r = subprocess.run([sys.executable, *cmd], capture_output=True,

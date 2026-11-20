@@ -100,6 +100,24 @@ def main():
         check("空目录不抛栈", "Traceback" not in out, out.splitlines()[:1])
         check("空目录有提示", "没有找到" in out)
 
+    # 6b. 全部模型都停在上一周期：不能报成「日志里没有带 quota 的行」（R14 的 B20）
+    with tempfile.TemporaryDirectory() as old_home:
+        proj = os.path.join(old_home, "projects", "case")
+        os.makedirs(proj)
+        now = time.time()
+        with open(os.path.join(proj, "s.jsonl"), "w", encoding="utf-8") as f:
+            for i in range(3):
+                f.write(json.dumps({
+                    "timestamp": now - 90000 + i * 60,
+                    "providerData": {"model": "test-old", "rawUsage": {
+                        "quota": {"model": "test-old", "percent": 40 + i,
+                                  "reset_at": str(int(now - 3600))},
+                        "credit": 1.0, "tokens": 10}}}, ensure_ascii=False) + "\n")
+        r3 = run(REPORT, "--no-cache", env={"WORKBUDDY_HOME": old_home})
+        check("全过期时不说「没有 quota 行」",
+              "没有带 quota 的行" not in r3.stdout, r3.stdout.strip()[:80])
+        check("全过期时说明是上一周期", "上一周期" in r3.stdout, r3.stdout.strip()[:80])
+
     # 7. 内置数据层与主项目同源
     s = run(os.path.join(SKILL, "scripts", "sync_check.py"))
     check("内置 quota_watch 与主项目同源", s.returncode == 0, s.stdout.strip()[:80])
@@ -120,6 +138,33 @@ def main():
     finally:
         qr.qw.load_snapshots = real
     check("load_report 只读一次快照", calls["n"] == 1, "调用 %d 次" % calls["n"])
+
+    # 8c. 缓存签名与写进缓存的报告同源（R12 的 B16）：本会话日志在扫描期间还在被追加，
+    #     写缓存时重算签名 = 把「读后的签名」配上「读前的数据」，下次命中拿到残缺报告。
+    seq = iter([["sig-A"], ["sig-B"], ["sig-C"]])
+    real_sig, real_cache = qr.log_signature, qr.cache_file
+    with tempfile.TemporaryDirectory() as cache_dir:
+        cache_path = os.path.join(cache_dir, "c.json")
+        # 先放一份签名对不上的旧缓存：这样才会走「比签名 → 重扫 → 写回」整条路，
+        # 旧实现的两次 log_signature() 调用（查缓存一次、写缓存一次）才会暴露。
+        with open(cache_path, "w", encoding="utf-8") as f:
+            json.dump({"sig": ["stale"], "at": time.time(), "report": {}}, f)
+        qr.log_signature = lambda: next(seq, ["sig-Z"])
+        qr.cache_file = lambda: cache_path
+        try:
+            qr.load_report(use_cache=True)
+            with open(cache_path, encoding="utf-8") as f:
+                stored = json.load(f)["sig"]
+        finally:
+            qr.log_signature, qr.cache_file = real_sig, real_cache
+    check("缓存签名与报告同源（取读盘前那次）", stored == ["sig-A"], stored)
+
+    # 8d. 表头窗口跟报告走，不跟模块常量（R13 的 B19）
+    fake = {"models": [{"model": "m", "percent_used": 10, "reset_local": "—",
+                        "forecast": {"tier": "idle", "k": 0}, "last_seen_ts": 0}],
+            "window_min": 45, "has_risk": False}
+    head = qr.render(fake, False, 0.0).splitlines()[0]
+    check("表头窗口取自报告的 window_min", "近 45 分钟" in head, head)
 
     # 8b. notify 侧同理（源码级：`load_snapshots` 只允许出现一次调用点）
     with open(os.path.join(SKILL, "scripts", "notify.py"), encoding="utf-8") as f:

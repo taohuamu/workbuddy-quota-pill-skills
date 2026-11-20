@@ -1,6 +1,6 @@
 # 计划任务：后端选择与已知限制
 
-上次核对：2026-11-15（本轮有实测，见文末「验证状态」）
+上次核对：2026-11-20（本轮有实测，见文末「验证状态」）
 
 提醒用的是 Windows 计划任务：每 N 分钟拉起一次 `notify.py`，跑完即退。本文记录
 「用哪个后端注册」的判断依据，以及各后端在本项目里踩到的限制。
@@ -52,9 +52,10 @@ probe_scheduler.py --json
 ## 运行副本
 
 任务动作指向 `%LOCALAPPDATA%\quota-pill\runtime\notify.py`，而不是技能目录里的脚本。
-安装时把 `notify.py`、`quota_watch.py`、`phrasing.py` 三个文件复制过去，卸载时一并删除。
-**少一个就是 ImportError**，而任务失败是静默的——界面上不显示，只有 `--status` 的
-`LastTaskResult` 会变。
+安装时把 `notify.py`、`quota_watch.py`、`phrasing.py`、`forecast.py` 四个文件复制过去
+（`STAGE_FILES` 是唯一清单），卸载时一并删除。**少一个就是 ImportError**，而任务失败是
+静默的——界面上不显示，只有 `--status` 的 `LastTaskResult` 会变。`forecast.py` 曾经漏在
+白名单外，任务每次都在 import 处失败，却没有任何界面提示。
 
 卸载顺序必须是**先删任务、再删目录**。反过来，两次操作之间若正好到点，任务会去拉一个已经
 不存在的脚本，往 `notify.log` 里留一条无意义的报错。任务本就不存在时报「本来就不存在」，属正常。
@@ -70,7 +71,7 @@ probe_scheduler.py --json
 
 | 代价 | 对策 |
 |---|---|
-| 改了 `notify.py` 不重装就不生效 | `--status` 比对文件大小，落后时提示「重跑一次安装」 |
+| 改了 `notify.py` 不重装就不生效 | `--status` 逐个比对内容哈希（sha256），落后时提示「重跑一次安装」 |
 | 多占一份磁盘 | 几份纯 Python，约 30 KB |
 
 `--status` 除了任务状态，还会打出**安装时的间隔与阈值**，来源是
@@ -116,9 +117,10 @@ probe_scheduler.py --json
 - **正文只说结果**：通知与报告里的句子是「按此速度约 40 分钟后到上限」「近 15 分钟无新增」，
   不再出现「X 小时内触限」这种对 wall-clock 的承诺——实测里报警后用户停手，这个承诺
   就不成立。
-- **每次跑会读两遍日志**：`build_report()` 内部读一遍，`forecast` 要原始快照又读一遍，
-  合计约 1.7 秒（4000 条快照的机器）。任务每 10 分钟一次，可以接受；若日志继续变大，
-  再考虑给 `build_report` 加一个可选的 `snaps` 参数（要两仓同改）。
+- **一次只读一遍日志**（0.5.2 起）：`build_report()` 接受调用方已读好的快照
+  （`loaded=(snaps, n_files, n_rec)`），报告与预测共用。此前是读两遍，同一台机实测
+  1.96 秒 → 0.95 秒，而耗时是原样打在报告末行给用户看的。改回去等于让每次查询多付一遍
+  全量扫。
 - **提权需要管理员**：`-RunLevel Highest` 在非管理员会话下直接报「拒绝访问」；
   枚举值是 `Limited` / `Highest`，没有 `HighestAvailable`（那是另一个 API 的写法）。
   本项目不需要提权，`Limited` 即可。
@@ -130,9 +132,10 @@ probe_scheduler.py --json
   `[Console]::OutputEncoding=[Text.Encoding]::UTF8`。
 - **只在本机验证过**：另一条路（另一台机器、另一套策略）的实际表现可能不同，
   所以保留探测而不是写死。
-- **任务跑的是副本，不是技能目录**：安装时会把 `notify.py` 与 `quota_watch.py` 复制到
-  `%LOCALAPPDATA%\quota-pill\runtime\`，任务动作指向副本。好处是删掉、移动、重装技能都不会
-  让任务指向空路径；代价是改了脚本要重跑一次安装，`--status` 会提示副本落后。
+- **任务跑的是副本，不是技能目录**：安装时会把 `notify.py`、`quota_watch.py`、`phrasing.py`、
+  `forecast.py` 复制到 `%LOCALAPPDATA%\quota-pill\runtime\`，任务动作指向副本。好处是删掉、
+  移动、重装技能都不会让任务指向空路径；代价是改了脚本要重跑一次安装，`--status` 会提示
+  副本落后（按内容哈希比对，不是按大小）。
   卸载时任务与副本一起删除。
 - **解释器路径写死在任务动作里**：取的是安装时 `sys.executable` 同目录的 `pythonw.exe`。
   在装了 WorkBuddy 的机器上，这条路径是 `…\.workbuddy\binaries\python\versions\<版本>\pythonw.exe`，
@@ -178,6 +181,7 @@ WorkBuddy 自身有「定时任务」，可以完全不用系统计划任务。�
 | 卸载连带清副本 | 通过：任务 `CLEAN`，runtime 目录已消失 |
 | `--dry-run` | 通过：只打印命令与目标路径，未建目录、未注册任务 |
 | 副本落后提示 | 通过：人为截断副本后 `--status` 提示「重跑一次安装」 |
+| 副本落后提示（同大小改动） | 通过（2026-11-20）：把副本里一个字节改掉、长度不变，判据仍报落后；旧的「比大小」实现这里返回「已是最新」 |
 | 未运行状态的显示 | 通过：`LAST=从未运行`、`RESULT=0x41303（从未运行过，正常）` |
 
 未验证：企业组策略同时禁用任务计划程序与 PowerShell 的情形；PowerShell 被降级到

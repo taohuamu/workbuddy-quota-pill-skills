@@ -17,6 +17,7 @@
 
 import argparse
 import datetime as dt
+import hashlib
 import json
 import os
 import shutil
@@ -65,14 +66,31 @@ def stage_runtime():
     return os.path.join(RUNTIME_DIR, "notify.py")
 
 
+def _digest(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def staged_is_stale():
-    """runtime 里的副本是否落后于技能目录（改了代码没重装）。"""
+    """runtime 里的副本是否落后于技能目录（改了代码没重装）。
+
+    比内容哈希，不比大小：改一个字符而字节数不变是最常见的编辑（换数字、改注释里的
+    一个词），只比大小时 `--status` 会报「已是最新」，而任务跑的还是旧代码。
+    这种错是静默的，且每次检查都错。读不到文件按「文件缺失」或「读取失败」一律判落后，
+    宁可让人多跑一次安装。
+    """
     for name in STAGE_FILES:
         src = os.path.join(HERE, name)
         dst = os.path.join(RUNTIME_DIR, name)
-        if not os.path.exists(dst):
+        if not os.path.exists(dst) or not os.path.exists(src):
             return True
-        if os.path.exists(src) and os.path.getsize(src) != os.path.getsize(dst):
+        try:
+            if _digest(src) != _digest(dst):
+                return True
+        except OSError:
             return True
     return False
 
