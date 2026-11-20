@@ -1,6 +1,6 @@
 # 迭代状态（第五周期 · 技能版）
 
-轮次：5 / 5（R15 完成 · 迭代结束；R16–R17 为收敛后回流，见文末两节）
+轮次：5 / 5（R15 完成 · 迭代结束；R16–R18 为收敛后回流，见文末三节）
 技能路径：`D:\AI_work\WorkBuddy_work\2026-11-05-22-37-57\workbuddy-quota-pill-skills\quota-pill`
 基线备份路径：`_iteration/backup_baseline_20261120_2302`（14 文件 / 168 KB，含 __pycache__）
 起始版本：0.5.5（本周期只有判据与文档修正，未改对外行为，版本号不动）
@@ -132,6 +132,27 @@ validate PASS + sync OK。下一轮的候选（`docs/how-it-works.md` 的数字�
 回归：47/47、53/53、5/5、11/11、validate PASS、sync OK、打包自检 5/5。
 
 ---
+
+## 收敛后回流三（2026-11-21 00:30 · R18 · 上架文案）
+
+用户定稿上架信息。先查了本机三个从市场装过的技能的 `_skillhub_meta.json`，确认字段映射：
+**市场展示名称 ← `display_name`，能力介绍 ← `description_zh`/`description_en`**，
+`description` 只用于路由。
+
+- `display_name` → `配额胶囊——技能版`；`display_name_en` → `Quota Pill — Skill Edition`
+- `description_zh` / `description_en` → 用户定稿的新文案（含桌面版指路）
+- `version` 0.5.5 → **0.5.7**（0.5.6 是用量地板那版占过的号，未发布也不复用）
+- **`description` 未动**：它的 190 字里有「额度/配额/限额还剩多少」「为什么数字不动」
+  「快用完时提醒我」等触发词，改它就得重跑真路由验证
+
+出包：`dist/quota-pill.zip`（13 文件 54 KB，0.5.7，sha256 `4e386242`），已覆盖桌面副本，
+哈希一致。回归：47/47、53/53、5/5、11/11、validate PASS、上架包校验通过。
+
+**未决**：若表单的能力介绍取自 `description` 而非 `description_zh`，上传后仍是旧文案，
+届时需改 `description` 并重跑 9 条真路由用例。
+
+---
+
 
 
 # 历史：第四周期（R6–R10 · 技能版 · 已结束）
